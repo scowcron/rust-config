@@ -2,14 +2,14 @@ extern crate config;
 
 use std::path::Path;
 
-use config::reader;
+use config::types::Config;
 use config::types::Value;
 use config::types::ScalarValue;
 use config::types::Lookup;
 
 #[test]
 fn conf_from_file() {
-    let my_conf = reader::from_file(Path::new("tests/sample.conf"));
+    let my_conf = Config::from_file(Path::new("tests/sample.conf"));
     assert!(my_conf.is_ok());
 
     // Configuration was successfully parsed and is now loaded

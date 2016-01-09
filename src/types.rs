@@ -1,9 +1,13 @@
 //! Internal types used to represent a configuration and corresponding primitives to browse it
 
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::string::ToString;
-use ::error::ConfigError;
+use error::ConfigError;
+use parser::parse;
 
 /// The top-level `Config` type that represents a configuration
 #[derive(PartialEq)]
@@ -72,9 +76,116 @@ impl Config {
         Config { root: Value::Group(sl) }
     }
 
+    /// Reads a configuration from a generic stream.
+    /// Errors can be caused by:
+    ///
+    /// * An I/O error on `stream`, in which case no parsing was done
+    /// * A syntax error
+    ///
+    /// If a syntax error is reported, it means that the stream successfully delivered every piece of
+    /// data, since parsing doesn't start until the whole input is read to memory.
+    /// # Examples
+    /// For educational / demonstration purposes, we can wrap a string inside a `Cursor` to simulate
+    /// a stream of data:
+    ///
+    /// ```
+    /// use std::io::Cursor;
+    /// use config::types::Config;
+    ///
+    /// let sample_conf = "windows=NO;\nlinux = YES;\n";
+    /// let mut cursor = Cursor::new(sample_conf.as_bytes());
+    /// let parsed = Config::from_stream(&mut cursor);
+    /// assert!(parsed.is_ok());
+    /// ```
+    ///
+    /// In this example, we do the same, but with a broken conf:
+    ///
+    /// ```
+    /// use std::io::Cursor;
+    /// use config::types::Config;
+    /// use config::error::ErrorKind;
+    ///
+    /// let sample_conf = "windows=\n";
+    /// let mut cursor = Cursor::new(sample_conf.as_bytes());
+    /// let parsed = Config::from_stream(&mut cursor);
+    /// assert!(parsed.is_err());
+    /// assert_eq!(parsed.unwrap_err().kind, ErrorKind::ParseError);
+    /// ```
+    ///
+    /// The other situation where an error is returned is when the underlying stream
+    /// yields an I/O error. We can simulate this behavior by implementing a reader that
+    /// always returns an error:
+    ///
+    /// ```
+    /// use std::io::{Read, Cursor};
+    /// use std::io::Error as IoError;
+    /// use std::io::Result as IoResult;
+    /// use std::io::ErrorKind as IoErrorKind;
+    ///
+    /// use config::types::Config;
+    /// use config::error::ErrorKind;
+    ///
+    /// struct BadCursor;
+    ///
+    /// impl Read for BadCursor {
+    ///     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+    ///         Err(IoError::new(IoErrorKind::Other, "An I/O error has occurred."))
+    ///     }
+    /// }
+    ///
+    /// let parsed = Config::from_stream(&mut BadCursor);
+    /// assert!(parsed.is_err());
+    /// assert_eq!(parsed.unwrap_err().kind, ErrorKind::IoError);
+    ///
+    /// ```
+    ///
+    pub fn from_stream<T: Read>(stream: &mut T) -> Result<Config, ConfigError> {
+        let mut buf = String::new();
+
+        match stream.read_to_string(&mut buf) {
+            Ok(_) => Config::from_str(&buf[..]),
+            Err(e) => Err(ConfigError::from(e))
+        }
+    }
+
+    /// Reads a configuration from a UTF-8 file.
+    /// Errors can be caused by:
+    ///
+    /// * An error when trying to locate / open the file. This is treated as an I/O error.
+    /// * A syntax error
+    ///
+    /// Errors upon opening the file can happen due to the file not existing, or bad permissions, etc.
+    ///
+    /// # Examples
+    /// This reads and parses a configuration stored in `examples/sample.conf`:
+    ///
+    /// ```
+    /// use std::path::Path;
+    ///
+    /// use config::types::Config;
+    ///
+    /// let parsed = Config::from_file(Path::new("tests/sample.conf"));
+    /// assert!(parsed.is_ok());
+    /// ```
+    ///
+    pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
+        let mut file = match File::open(path) {
+            Ok(f) => f,
+            Err(e) => return Err(ConfigError::from(e))
+        };
+        Config::from_stream(&mut file)
+    }
+
     /// Fetch a reference to the root element of this configuration.
     pub fn as_value(&self) -> &Value {
         &self.root
+    }
+}
+
+impl FromStr for Config {
+    type Err = ConfigError;
+    fn from_str(s: &str) -> Result<Config, ConfigError> {
+        parse(s).map_err(|e| ConfigError::from(e))
     }
 }
 
@@ -123,18 +234,6 @@ impl Lookup for Value {
             }
         }
         Some(last_value)
-    }
-}
-
-// Implement `FromStr` for `Config` so it can be constructed using `parse()` method
-// on the string slice.
-impl FromStr for Config {
-    type Err = ConfigError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use ::reader;
-
-        reader::from_str(s)
     }
 }
 
@@ -236,10 +335,11 @@ pub trait Lookup {
     /// Here's a small demonstration:
     ///
     /// ```
-    /// use config::reader::from_str;
+    /// use std::str::FromStr;
+    /// use config::types::Config;
     /// use config::types::Lookup;
     ///
-    /// let my_conf = from_str("my_string = \"hello\"; a_list = ([1, 2, 3], true, { x = 4; }, \"good_bye\");").unwrap();
+    /// let my_conf = Config::from_str("my_string = \"hello\"; a_list = ([1, 2, 3], true, { x = 4; }, \"good_bye\");").unwrap();
     ///
     /// let my_str_value = my_conf.lookup("my_string");
     /// assert!(my_str_value.is_some());
@@ -388,6 +488,14 @@ pub trait Lookup {
 mod test {
     use super::Config;
     use types::{Lookup, Value, ScalarValue, SettingsList, Setting};
+    use error::ErrorKind;
+    use std::path::Path;
+    use std::io::Cursor;
+    use std::io::Error as IoError;
+    use std::io::ErrorKind as IoErrorKind;
+    use std::io::Result as IoResult;
+    use std::io::Read;
+    use std::str::FromStr;
 
     #[test]
     fn simple_lookup_generic_bool() {
@@ -778,4 +886,101 @@ mod test {
         let val = group.lookup_integer32("value");
         assert_eq!(val, Some(3));
     }
+
+    struct BadStrCursor<'a> {
+        cursor: Cursor<&'a [u8]>,
+        calls: u16,
+        max_calls_before_err: u16
+    }
+
+    impl<'a> BadStrCursor<'a> {
+        fn new(data: &'a [u8], max_calls: u16) -> BadStrCursor<'a> {
+            BadStrCursor { cursor: Cursor::new(data), calls: 0, max_calls_before_err: max_calls }
+        }
+    }
+
+    impl<'a> Read for BadStrCursor<'a> {
+        fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+            self.calls += 1;
+            if self.calls >= self.max_calls_before_err {
+                Err(IoError::new(IoErrorKind::Other, "An I/O error has occurred."))
+            } else {
+                self.cursor.read(buf)
+            }
+        }
+    }
+
+    #[test]
+    fn conf_from_str() {
+        let parsed = Config::from_str("windows=NO;\nlinux = true;\nUNIX\t=\nFaLsE;\n");
+        assert!(parsed.is_ok());
+
+        let mut expected = SettingsList::new();
+        expected.insert("windows".to_string(),
+                        Setting::new("windows".to_string(),
+                                     Value::Svalue(ScalarValue::Boolean(false))));
+        expected.insert("linux".to_string(),
+                        Setting::new("linux".to_string(),
+                                     Value::Svalue(ScalarValue::Boolean(true))));
+        expected.insert("UNIX".to_string(),
+                        Setting::new("UNIX".to_string(),
+                                     Value::Svalue(ScalarValue::Boolean(false))));
+
+        assert_eq!(parsed.unwrap(), Config::new(expected));
+    }
+
+    #[test]
+    fn conf_from_str_parse_err() {
+        let parsed = Config::from_str("windows=NO\nlinux=true;\n");
+        assert!(parsed.is_err());
+        assert_eq!(parsed.unwrap_err().kind, ErrorKind::ParseError);
+    }
+
+    #[test]
+    fn conf_from_stream() {
+        let sample_conf = "windows=NO;\nlinux = true;\nUNIX\t=\nFaLsE;\n";
+        let mut cursor = Cursor::new(sample_conf.as_bytes());
+        let parsed = Config::from_stream(&mut cursor);
+
+        assert!(parsed.is_ok());
+        let mut expected = SettingsList::new();
+        expected.insert("windows".to_string(),
+                        Setting::new("windows".to_string(),
+                                     Value::Svalue(ScalarValue::Boolean(false))));
+        expected.insert("linux".to_string(),
+                        Setting::new("linux".to_string(),
+                                     Value::Svalue(ScalarValue::Boolean(true))));
+        expected.insert("UNIX".to_string(),
+                        Setting::new("UNIX".to_string(),
+                                     Value::Svalue(ScalarValue::Boolean(false))));
+
+        assert_eq!(parsed.unwrap(), Config::new(expected));
+    }
+
+    #[test]
+    fn conf_from_stream_parse_err() {
+        let sample_conf = "windows=NO\nlinux = true;\n";
+        let mut cursor = Cursor::new(sample_conf.as_bytes());
+        let parsed = Config::from_stream(&mut cursor);
+
+        assert!(parsed.is_err());
+        assert_eq!(parsed.unwrap_err().kind, ErrorKind::ParseError);
+    }
+
+    #[test]
+    fn conf_from_stream_io_err() {
+        let sample_conf = "windows=NO;\nlinux = true;\n";
+        let mut bad_cursor = BadStrCursor::new(sample_conf.as_bytes(), 1);
+        let parsed = Config::from_stream(&mut bad_cursor);
+
+        assert!(parsed.is_err());
+        assert_eq!(parsed.unwrap_err().kind, ErrorKind::IoError);
+    }
+
+    #[test]
+    fn conf_from_file() {
+        let parsed = Config::from_file(Path::new("tests/sample.conf"));
+        assert!(parsed.is_ok());
+    }
+
 }
