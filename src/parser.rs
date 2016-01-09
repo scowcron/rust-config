@@ -360,7 +360,9 @@ named!(group<&[u8], SettingsList>,
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~ Boolean values parser and auxiliary parsers ~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-named!(boolean_scalar_value<&[u8], ScalarValue>, alt!(bool_true_value | bool_false_value | bool_env_value));
+named!(boolean_scalar_value<&[u8], ScalarValue>, alt!(bool_local_value | bool_env_value));
+
+named!(bool_local_value<&[u8], ScalarValue>, alt!(bool_true_value | bool_false_value));
 
 named!(bool_true_value<&[u8], ScalarValue>,
        alt!(chain!(
@@ -414,7 +416,8 @@ named!(bool_env_value<&[u8], ScalarValue>,
                alt!(tag!("B") | tag!("b")) ~
                alt!(tag!("O") | tag!("o")) ~
                alt!(tag!("O") | tag!("o")) ~
-               alt!(tag!("L") | tag!("l")),
+               alt!(tag!("L") | tag!("l")) ~
+               d: bool_env_default,
                || {
                   use std::env;
                   if let Ok(value) = env::var(&n) {
@@ -423,10 +426,20 @@ named!(bool_env_value<&[u8], ScalarValue>,
                     } else {
                       ScalarValue::Boolean(false)
                     }
+                  } else if let Some(_) = d {
+                      d.unwrap()
                   } else {
-                    ScalarValue::Boolean(false)
+                      ScalarValue::Boolean(false)
                   }
                 } ));
+
+named!(bool_env_default<&[u8], Option<ScalarValue> >,
+       opt!(chain!(
+            tag!("(") ~
+            v: bool_local_value ~
+            tag!(")"),
+            || { v })));
+
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~ String parser and auxiliary parsers ~~~
@@ -3601,6 +3614,21 @@ mod test {
         let input = &b"$\"TEST_BOOL\";\n"[..];
         let res = auto_env_scalar_value(input);
         assert_eq!(res, Done(&b";\n"[..], ScalarValue::Boolean(false)));
+    }
+
+    #[test]
+    fn env_bool_scalar_default_values() {
+        // Set up environment variables
+        use std::env;
+        env::set_var("TEST_BOOL", "Yes");
+
+        let input = &b"$\"TEST_BOOL\"::bool(false);\n"[..];
+        let res = boolean_scalar_value(input);
+        assert_eq!(res, Done(&b";\n"[..], ScalarValue::Boolean(true)));
+
+        let input = &b"$\"TEST_BOOL_NOT_FOUND\"::bool(Yes);\n"[..];
+        let res = boolean_scalar_value(input);
+        assert_eq!(res, Done(&b";\n"[..], ScalarValue::Boolean(true)));
     }
 
     #[test]
