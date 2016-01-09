@@ -5,7 +5,25 @@
 //! configurations, but future plans include a much richer user API to allow other forms of
 //! interaction, such as manipulating values, writing the current configuration to a file, etc.
 //!
-//!# Getting started
+//! # Getting started
+//!
+//! ```
+//! use config::{Config, Lookup};
+//! use std::str::FromStr;
+//!
+//! let raw = "my_config: {
+//!     name = \"My Configuration\";
+//!     max_items = 32;
+//!     is_cool = Yes;
+//! };";
+//!
+//! let cfg = Config::from_str(raw)
+//!                  .unwrap();
+//!
+//! assert_eq!(cfg.lookup_boolean("my_config.is_cool").unwrap(), true);
+//! ```
+//!
+//! # Configuration
 //!
 //! A configuration file consists of a group of settings. A setting is a key/value pair, where the
 //! key is a string of the form `[a-zA-Z][-a-zA-Z0-9_]*`, and the value is anything represented by
@@ -29,7 +47,7 @@
 //!
 //! For example, consider this input configuration file:
 //!
-//!```ignore
+//! ```ignore
 //! title = "My HTTP server";
 //! listen_ports = [ 80, 443 ];
 //! misc = {
@@ -43,7 +61,7 @@
 //!         emails = ["chuck@norris.com", "chuck.norris@gmail.com"];
 //!     };
 //! };
-//!```
+//! ```
 //!
 //! At the top level, we have 3 settings: `title`, `listen_ports` and `misc`. `misc` is itself a
 //! group of settings. Each value in this configuration is reachable by a unique path of settings
@@ -61,14 +79,14 @@
 //! Lists, as opposed to arrays, are heterogeneous and can store any data type, including other
 //! lists. Here's a setting consisting of a heterogeneous list:
 //!
-//!```ignore
+//! ```ignore
 //! // This is a list. Lists start with `(` and end with `)`
 //! // Lists are heterogeneous and can store any data type, including other lists
 //! a_setting = ("a string", // The first element is a string
 //!              ((1, 2, 3)), // The 2nd element is a list storing a list of 3 integers
 //!              misc = { x = 4; y = 3; } // 3rd element: a group
 //!             );
-//!```
+//! ```
 //!
 //! Here are some valid paths for this example:
 //!
@@ -100,7 +118,7 @@
 //! See the integration tests (in the `tests/` directory) for sample use cases and more complex
 //! examples.
 //!
-//!# Environment variables
+//! # Environment variables
 //!
 //! The crate has an ability to inject environment variables into the configuration file. That
 //! becomes possible using special syntax:  
@@ -121,7 +139,7 @@
 //!    - If the value is integer then the result type is `integer`;  
 //!    - Otherwise the result is `string` value.  
 //!
-//!**Example**:
+//! **Example**:
 //!
 //! ```ignore
 //! #!/bin/sh
@@ -136,7 +154,7 @@
 //! }
 //! ```
 //!
-//!# Grammar
+//! # Grammar
 //!
 //! This section describes the configuration input format. The starting rule is `conf`.
 //!
@@ -243,7 +261,6 @@
 //! multi_line_comment -> "/*"([^*]|"*"[^/])*"*/"
 //!
 //! ```
-//!
 
 #![crate_name = "config"]
 #![crate_type = "lib"]
