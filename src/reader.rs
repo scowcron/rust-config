@@ -7,7 +7,6 @@ use std::fs::File;
 use types::Config;
 use parser::parse;
 use error::ConfigError;
-use error::{from_io_err, from_parse_err};
 
 /// Reads a configuration from a generic stream.
 /// Errors can be caused by:
@@ -36,13 +35,13 @@ use error::{from_io_err, from_parse_err};
 /// ```
 /// use std::io::Cursor;
 /// use config::reader::from_stream;
-/// use config::error::ConfigErrorKind;
+/// use config::error::ErrorKind;
 ///
 /// let sample_conf = "windows=\n";
 /// let mut cursor = Cursor::new(sample_conf.as_bytes());
 /// let parsed = from_stream(&mut cursor);
 /// assert!(parsed.is_err());
-/// assert_eq!(parsed.unwrap_err().kind, ConfigErrorKind::ParseError);
+/// assert_eq!(parsed.unwrap_err().kind, ErrorKind::ParseError);
 /// ```
 ///
 /// The other situation where an error is returned is when the underlying stream
@@ -53,22 +52,22 @@ use error::{from_io_err, from_parse_err};
 /// use std::io::{Read, Cursor};
 /// use std::io::Error as IoError;
 /// use std::io::Result as IoResult;
-/// use std::io::ErrorKind;
+/// use std::io::ErrorKind as IoErrorKind;
 ///
 /// use config::reader::from_stream;
-/// use config::error::ConfigErrorKind;
+/// use config::error::ErrorKind;
 ///
 /// struct BadCursor;
 ///
 /// impl Read for BadCursor {
 ///     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
-///         Err(IoError::new(ErrorKind::Other, "An I/O error has occurred."))
+///         Err(IoError::new(IoErrorKind::Other, "An I/O error has occurred."))
 ///     }
 /// }
 ///
 /// let parsed = from_stream(&mut BadCursor);
 /// assert!(parsed.is_err());
-/// assert_eq!(parsed.unwrap_err().kind, ConfigErrorKind::IoError);
+/// assert_eq!(parsed.unwrap_err().kind, ErrorKind::IoError);
 ///
 /// ```
 ///
@@ -77,7 +76,7 @@ pub fn from_stream<T: Read>(stream: &mut T) -> Result<Config, ConfigError> {
 
     match stream.read_to_string(&mut buf) {
         Ok(_) => from_str(&buf[..]),
-        Err(e) => Err(from_io_err(e))
+        Err(e) => Err(ConfigError::from(e))
     }
 }
 
@@ -104,7 +103,7 @@ pub fn from_stream<T: Read>(stream: &mut T) -> Result<Config, ConfigError> {
 pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
     let mut file = match File::open(path) {
         Ok(f) => f,
-        Err(e) => return Err(from_io_err(e))
+        Err(e) => return Err(ConfigError::from(e))
     };
     from_stream(&mut file)
 }
@@ -115,7 +114,6 @@ pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
 ///
 /// ```
 /// use config::reader::from_str;
-/// use config::error::ConfigErrorKind;
 ///
 /// let parsed = from_str("windows=NO;\nlinux=true;\n");
 /// assert!(parsed.is_ok());
@@ -125,15 +123,15 @@ pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
 ///
 /// ```
 /// use config::reader::from_str;
-/// use config::error::ConfigErrorKind;
+/// use config::error::ErrorKind;
 ///
 /// let parsed = from_str("windows=NO\n");
 /// assert!(parsed.is_err());
-/// assert_eq!(parsed.unwrap_err().kind, ConfigErrorKind::ParseError);
+/// assert_eq!(parsed.unwrap_err().kind, ErrorKind::ParseError);
 /// ```
 ///
 pub fn from_str(input: &str) -> Result<Config, ConfigError> {
-    parse(input).map_err(|e| from_parse_err(e))
+    parse(input).map_err(|e| ConfigError::from(e))
 }
 
 #[cfg(test)]
@@ -143,11 +141,11 @@ mod test {
 
     use types::Config;
     use types::{SettingsList, Setting, Value, ScalarValue};
-    use error::{ConfigErrorKind};
+    use error::ErrorKind;
 
     use std::io::{Read, Cursor};
     use std::io::Error as IoError;
-    use std::io::ErrorKind;
+    use std::io::ErrorKind as IoErrorKind;
     use std::io::Result as IoResult;
     use std::path::Path;
 
@@ -167,7 +165,7 @@ mod test {
         fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
             self.calls += 1;
             if self.calls >= self.max_calls_before_err {
-                Err(IoError::new(ErrorKind::Other, "An I/O error has occurred."))
+                Err(IoError::new(IoErrorKind::Other, "An I/O error has occurred."))
             } else {
                 self.cursor.read(buf)
             }
@@ -197,7 +195,7 @@ mod test {
     fn conf_from_str_parse_err() {
         let parsed = from_str("windows=NO\nlinux=true;\n");
         assert!(parsed.is_err());
-        assert_eq!(parsed.unwrap_err().kind, ConfigErrorKind::ParseError);
+        assert_eq!(parsed.unwrap_err().kind, ErrorKind::ParseError);
     }
 
     #[test]
@@ -228,7 +226,7 @@ mod test {
         let parsed = from_stream(&mut cursor);
 
         assert!(parsed.is_err());
-        assert_eq!(parsed.unwrap_err().kind, ConfigErrorKind::ParseError);
+        assert_eq!(parsed.unwrap_err().kind, ErrorKind::ParseError);
     }
 
     #[test]
@@ -238,7 +236,7 @@ mod test {
         let parsed = from_stream(&mut bad_cursor);
 
         assert!(parsed.is_err());
-        assert_eq!(parsed.unwrap_err().kind, ConfigErrorKind::IoError);
+        assert_eq!(parsed.unwrap_err().kind, ErrorKind::IoError);
     }
 
     #[test]

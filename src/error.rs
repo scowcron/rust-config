@@ -9,7 +9,7 @@ use parser::ParseError;
 #[derive(Debug)]
 pub struct ConfigError {
     /// Indicates what kind of error this is
-    pub kind: ConfigErrorKind,
+    pub kind: ErrorKind,
     /// A descriptive message about the error
     pub desc: &'static str,
     /// Error details, if available
@@ -21,32 +21,36 @@ pub struct ConfigError {
 /// Possible error kinds
 #[derive(Debug)]
 #[derive(PartialEq)]
-pub enum ConfigErrorKind {
+pub enum ErrorKind {
     /// An I/O error. Can only occur if reading from a stream (file, socket, etc.)
     IoError,
     /// A syntax error
     ParseError
 }
 
-fn mk_error<E: fmt::Display>(kind: ConfigErrorKind, desc: &'static str, err: E) -> ConfigError {
-    let err_desc = format!("{:?} {}: {}", kind, desc, err);
-    ConfigError {
-        kind: kind,
-        desc: desc,
-        detail: Some(format!("{}", err)),
+impl ConfigError {
+    fn new<E: fmt::Display>(kind: ErrorKind, desc: &'static str, err: E) -> ConfigError {
+        let err_desc = format!("{:?} {}: {}", kind, desc, err);
+        ConfigError {
+            kind: kind,
+            desc: desc,
+            detail: Some(format!("{}", err)),
 
-        err_desc: err_desc
+            err_desc: err_desc
+        }
     }
 }
 
-/// Converts an I/O Error into a `ConfigError`
-pub fn from_io_err(err: IoError) -> ConfigError {
-    mk_error(ConfigErrorKind::IoError, "An I/O error has occurred", err)
+impl From<IoError> for ConfigError {
+    fn from(err: IoError) -> ConfigError {
+        ConfigError::new(ErrorKind::IoError, "An I/O error has occurred", err)
+    }
 }
 
-/// Converts a `ParseError` into a `ConfigError`
-pub fn from_parse_err(err: ParseError) -> ConfigError {
-    mk_error(ConfigErrorKind::ParseError, "Syntax error", err)
+impl From<ParseError> for ConfigError {
+    fn from(err: ParseError) -> ConfigError {
+        ConfigError::new(ErrorKind::ParseError, "Syntax error", err)
+    }
 }
 
 impl fmt::Display for ConfigError {
