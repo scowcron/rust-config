@@ -253,6 +253,8 @@
 extern crate nom;
 
 mod parser;
+mod types;
 
-pub mod types;
 pub mod error;
+pub use self::types::*;
+

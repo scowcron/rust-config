@@ -90,7 +90,7 @@ impl Config {
     ///
     /// ```
     /// use std::io::Cursor;
-    /// use config::types::Config;
+    /// use config::Config;
     ///
     /// let sample_conf = "windows=NO;\nlinux = YES;\n";
     /// let mut cursor = Cursor::new(sample_conf.as_bytes());
@@ -102,7 +102,7 @@ impl Config {
     ///
     /// ```
     /// use std::io::Cursor;
-    /// use config::types::Config;
+    /// use config::Config;
     /// use config::error::ErrorKind;
     ///
     /// let sample_conf = "windows=\n";
@@ -122,7 +122,7 @@ impl Config {
     /// use std::io::Result as IoResult;
     /// use std::io::ErrorKind as IoErrorKind;
     ///
-    /// use config::types::Config;
+    /// use config::Config;
     /// use config::error::ErrorKind;
     ///
     /// struct BadCursor;
@@ -162,7 +162,7 @@ impl Config {
     /// ```
     /// use std::path::Path;
     ///
-    /// use config::types::Config;
+    /// use config::Config;
     ///
     /// let parsed = Config::from_file(Path::new("tests/sample.conf"));
     /// assert!(parsed.is_ok());
@@ -244,9 +244,9 @@ impl Setting {
     /// We start by creating a `ScalarValue`:
     ///
     /// ```
-    /// use config::types::ScalarValue;
-    /// # use config::types::Value;
-    /// # use config::types::Setting;
+    /// use config::ScalarValue;
+    /// # use config::Value;
+    /// # use config::Setting;
     ///
     /// let setting_scalarvalue = ScalarValue::Integer32(1);
     /// # let setting_value = Value::Svalue(setting_scalarvalue);
@@ -257,9 +257,9 @@ impl Setting {
     /// Then, we wrap it into a `Value`, because settings store generic values:
     ///
     /// ```
-    /// # use config::types::ScalarValue;
-    /// use config::types::Value;
-    /// # use config::types::Setting;
+    /// # use config::ScalarValue;
+    /// use config::Value;
+    /// # use config::Setting;
     ///
     /// # let setting_scalarvalue = ScalarValue::Integer32(1);
     /// let setting_value = Value::Svalue(setting_scalarvalue);
@@ -270,9 +270,9 @@ impl Setting {
     /// And then we choose a name for our setting and create it:
     ///
     /// ```
-    /// # use config::types::ScalarValue;
-    /// # use config::types::Value;
-    /// use config::types::Setting;
+    /// # use config::ScalarValue;
+    /// # use config::Value;
+    /// use config::Setting;
     ///
     /// # let setting_scalarvalue = ScalarValue::Integer32(1);
     /// # let setting_value = Value::Svalue(setting_scalarvalue);
@@ -283,9 +283,9 @@ impl Setting {
     /// Here's the complete example:
     ///
     /// ```
-    /// use config::types::ScalarValue;
-    /// use config::types::Value;
-    /// use config::types::Setting;
+    /// use config::ScalarValue;
+    /// use config::Value;
+    /// use config::Setting;
     ///
     /// let setting_scalarvalue = ScalarValue::Integer32(1);
     /// let setting_value = Value::Svalue(setting_scalarvalue);
@@ -336,8 +336,8 @@ pub trait Lookup {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use config::types::Config;
-    /// use config::types::Lookup;
+    /// use config::Config;
+    /// use config::Lookup;
     ///
     /// let my_conf = Config::from_str("my_string = \"hello\"; a_list = ([1, 2, 3], true, { x = 4; }, \"good_bye\");").unwrap();
     ///

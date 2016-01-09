@@ -2,10 +2,10 @@ extern crate config;
 
 use std::path::Path;
 
-use config::types::Config;
-use config::types::Value;
-use config::types::ScalarValue;
-use config::types::Lookup;
+use config::Config;
+use config::Value;
+use config::ScalarValue;
+use config::Lookup;
 
 #[test]
 fn conf_from_file() {

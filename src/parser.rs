@@ -19,10 +19,10 @@
 //! The first step is to create a new, empty settings list:
 //!
 //! ```
-//! use config::types::SettingsList;
-//! # use config::types::ScalarValue;
-//! # use config::types::Value;
-//! # use config::types::Setting;
+//! use config::SettingsList;
+//! # use config::ScalarValue;
+//! # use config::Value;
+//! # use config::Setting;
 //!
 //! let mut my_settings_list = SettingsList::new();
 //! # let setting_name = "my_setting".to_string();
@@ -35,10 +35,10 @@
 //! Next, we define the setting name as `my_setting`:
 //!
 //! ```
-//! # use config::types::SettingsList;
-//! # use config::types::ScalarValue;
-//! # use config::types::Value;
-//! # use config::types::Setting;
+//! # use config::SettingsList;
+//! # use config::ScalarValue;
+//! # use config::Value;
+//! # use config::Setting;
 //!
 //! # let mut my_settings_list = SettingsList::new();
 //! let setting_name = "my_setting".to_string();
@@ -51,10 +51,10 @@
 //! Then, we create a boolean scalar value holding `true`:
 //!
 //! ```
-//! # use config::types::SettingsList;
-//! use config::types::ScalarValue;
-//! # use config::types::Value;
-//! # use config::types::Setting;
+//! # use config::SettingsList;
+//! use config::ScalarValue;
+//! # use config::Value;
+//! # use config::Setting;
 //!
 //! # let mut my_settings_list = SettingsList::new();
 //! # let setting_name = "my_setting".to_string();
@@ -67,10 +67,10 @@
 //! ... and we wrap it in a `Value`, because settings store generic values:
 //!
 //! ```
-//! # use config::types::SettingsList;
-//! # use config::types::ScalarValue;
-//! use config::types::Value;
-//! # use config::types::Setting;
+//! # use config::SettingsList;
+//! # use config::ScalarValue;
+//! use config::Value;
+//! # use config::Setting;
 //!
 //! # let mut my_settings_list = SettingsList::new();
 //! # let setting_name = "my_setting".to_string();
@@ -83,10 +83,10 @@
 //! And finally, we create the new setting:
 //!
 //! ```
-//! # use config::types::SettingsList;
-//! # use config::types::ScalarValue;
-//! # use config::types::Value;
-//! use config::types::Setting;
+//! # use config::SettingsList;
+//! # use config::ScalarValue;
+//! # use config::Value;
+//! use config::Setting;
 //!
 //! # let mut my_settings_list = SettingsList::new();
 //! # let setting_name = "my_setting".to_string();
@@ -98,10 +98,10 @@
 //! ... and insert it into the settings list:
 //!
 //! ```
-//! # use config::types::SettingsList;
-//! # use config::types::ScalarValue;
-//! # use config::types::Value;
-//! # use config::types::Setting;
+//! # use config::SettingsList;
+//! # use config::ScalarValue;
+//! # use config::Value;
+//! # use config::Setting;
 //!
 //! # let mut my_settings_list = SettingsList::new();
 //! # let setting_name = "my_setting".to_string();
@@ -113,10 +113,10 @@
 //!
 //! Here's the complete example:
 //! ```
-//! use config::types::SettingsList;
-//! use config::types::ScalarValue;
-//! use config::types::Value;
-//! use config::types::Setting;
+//! use config::SettingsList;
+//! use config::ScalarValue;
+//! use config::Value;
+//! use config::Setting;
 //!
 //! let mut my_settings_list = SettingsList::new();
 //! let setting_name = "my_setting".to_string();
@@ -130,11 +130,11 @@
 //! This is what the user sees and interacts with. It is as simple as:
 //!
 //! ```
-//! # use config::types::SettingsList;
-//! # use config::types::ScalarValue;
-//! # use config::types::Value;
-//! # use config::types::Setting;
-//! use config::types::Config;
+//! # use config::SettingsList;
+//! # use config::ScalarValue;
+//! # use config::Value;
+//! # use config::Setting;
+//! use config::Config;
 //!
 //! # let mut my_settings_list = SettingsList::new();
 //! # let setting_name = "my_setting".to_string();
