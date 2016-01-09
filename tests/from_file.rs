@@ -5,6 +5,7 @@ use std::path::Path;
 use config::reader;
 use config::types::Value;
 use config::types::ScalarValue;
+use config::types::Lookup;
 
 #[test]
 fn conf_from_file() {

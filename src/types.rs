@@ -72,43 +72,21 @@ impl Config {
         Config { root: Value::Group(sl) }
     }
 
-    /// Looks up a value in a configuration. A path is a dot-separated list of settings
-    /// describing the path of the desired value in the configuration.
-    /// Returns `None` if the path is invalid. A path is invalid if it is not syntactically
-    /// well-formed, if it attempts to index an array or list beyond the limit, or if it
-    /// includes an unknown setting.
-    /// # Examples
-    /// Suppose we have loaded a configuration that consists of:
-    ///
-    /// ```text
-    /// my_string = "hello";
-    /// a_list = ([1, 2, 3], true, { x = 4; }, "good bye");
-    /// ```
-    ///
-    /// Then, the path to retrieve `"hello"` is `my_string`.
-    /// The path to retrieve `true` inside `a_list` would be `a_list.[1]`.
-    /// The path to retrieve the setting `x` inside `a_list` would be `alist.[2].x`.
-    ///
-    /// Here's a small demonstration:
-    ///
-    /// ```
-    /// use config::reader::from_str;
-    ///
-    /// let my_conf = from_str("my_string = \"hello\"; a_list = ([1, 2, 3], true, { x = 4; }, \"good_bye\");").unwrap();
-    ///
-    /// let my_str_value = my_conf.lookup("my_string");
-    /// assert!(my_str_value.is_some());
-    ///
-    /// let my_boolean_value = my_conf.lookup("a_list.[1]");
-    /// assert!(my_boolean_value.is_some());
-    ///
-    /// let my_x_setting = my_conf.lookup("a_list.[2].x");
-    /// assert!(my_x_setting.is_some());
-    ///
-    /// ```
-    ///
-    pub fn lookup(&self, path: &str) -> Option<&Value> {
-        let mut last_value = &self.root;
+    /// Fetch a reference to the root element of this configuration.
+    pub fn as_value(&self) -> &Value {
+        &self.root
+    }
+}
+
+impl Lookup for Config {
+    fn lookup(&self, path: &str) -> Option<&Value> {
+        self.root.lookup(path)
+    }
+}
+
+impl Lookup for Value {
+    fn lookup(&self, path: &str) -> Option<&Value> {
+        let mut last_value = self;
         for segment in path.split(".") {
             if segment.starts_with("[") {
                 if !segment.ends_with("]") || segment.len() < 3 {
@@ -146,136 +124,6 @@ impl Config {
         }
         Some(last_value)
     }
-
-    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
-    /// type of a generic `Value`.
-    ///
-    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
-    /// type does not match with the requested type - in this case, `bool`.
-    pub fn lookup_boolean(&self, path: &str) -> Option<bool> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Boolean(b)) => Some(b),
-                                       _ => None
-                                   })
-    }
-
-    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
-    /// type of a generic `Value`.
-    ///
-    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
-    /// type does not match with the requested type - in this case, `i32`.
-    pub fn lookup_integer32(&self, path: &str) -> Option<i32> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Integer32(x)) => Some(x),
-                                       _ => None
-                                   })
-    }
-
-    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
-    /// type of a generic `Value`.
-    ///
-    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
-    /// type does not match with the requested type - in this case, `i64`.
-    pub fn lookup_integer64(&self, path: &str) -> Option<i64> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Integer64(x)) => Some(x),
-                                       _ => None
-                                   })
-    }
-
-    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
-    /// type of a generic `Value`.
-    ///
-    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
-    /// type does not match with the requested type - in this case, `f32`.
-    pub fn lookup_floating32(&self, path: &str) -> Option<f32> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Floating32(x)) => Some(x),
-                                       _ => None
-                                   })
-    }
-
-    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
-    /// type of a generic `Value`.
-    ///
-    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
-    /// type does not match with the requested type - in this case, `f64`.
-    pub fn lookup_floating64(&self, path: &str) -> Option<f64> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Floating64(x)) => Some(x),
-                                       _ => None
-                                   })
-    }
-
-    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
-    /// type of a generic `Value`.
-    ///
-    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
-    /// type does not match with the requested type - in this case, `String`.
-    pub fn lookup_str(&self, path: &str) -> Option<&str> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Str(ref s)) => Some(&s[..]),
-                                       _ => None
-                                   })
-    }
-
-    /// A convenient wrapper around `lookup_boolean()` that unwraps the underlying primitive
-    /// type of a boolean `Value`.
-    ///
-    /// If either of `lookup_boolean()` or `lookup` return `None`,
-    /// then the user-provided default value is returned.
-    pub fn lookup_boolean_or(&self, path: &str, default: bool) -> bool {
-        self.lookup_boolean(path).unwrap_or(default)
-    }
-
-    /// A convenient wrapper around `lookup_integer32()` that unwraps the underlying primitive
-    /// type of an integer32 `Value`.
-    ///
-    /// If either of `lookup_integer32()` or `lookup` return `None`,
-    /// then the user-provided default value is returned.
-    pub fn lookup_integer32_or(&self, path: &str, default: i32) -> i32 {
-        self.lookup_integer32(path).unwrap_or(default)
-    }
-
-    /// A convenient wrapper around `lookup_integer64()` that unwraps the underlying primitive
-    /// type of an integer64 `Value`.
-    ///
-    /// If either of `lookup_integer64()` or `lookup` return `None`,
-    /// then the user-provided default value is returned.
-    pub fn lookup_integer64_or(&self, path: &str, default: i64) -> i64 {
-        self.lookup_integer64(path).unwrap_or(default)
-    }
-
-    /// A convenient wrapper around `lookup_floating32()` that unwraps the underlying primitive
-    /// type of an floating32 `Value`.
-    ///
-    /// If either of `lookup_floating32()` or `lookup` return `None`,
-    /// then the user-provided default value is returned.
-    pub fn lookup_floating32_or(&self, path: &str, default: f32) -> f32 {
-        self.lookup_floating32(path).unwrap_or(default)
-    }
-
-    /// A convenient wrapper around `lookup_floating64()` that unwraps the underlying primitive
-    /// type of an floating64 `Value`. If either of `lookup_floating64()` or `lookup` return `None`,
-    /// then the user-provided default value is returned.
-    pub fn lookup_floating64_or(&self, path: &str, default: f64) -> f64 {
-        self.lookup_floating64(path).unwrap_or(default)
-    }
-
-    /// A convenient wrapper around `lookup_str()` that unwraps the underlying primitive
-    /// type of a string `Value`.
-    ///
-    /// If either of `lookup_str()` or `lookup` return `None`,
-    /// then the user-provided default value is returned.
-    pub fn lookup_str_or<'a>(&'a self, path: &str, default: &'a str) -> &'a str {
-        self.lookup_str(path).unwrap_or(default)
-    }
 }
 
 // Implement `FromStr` for `Config` so it can be constructed using `parse()` method
@@ -292,7 +140,7 @@ impl FromStr for Config {
 
 impl Setting {
     /// Creates a new setting with a given name and value
-    /// # Examples 
+    /// # Examples
     /// Let's say we want to create a setting to store an `i32`.
     /// We start by creating a `ScalarValue`:
     ///
@@ -365,10 +213,181 @@ impl ToString for ScalarValue {
     }
 }
 
+/// Lookup values within a configuration.
+pub trait Lookup {
+    /// Looks up a value in a configuration. A path is a dot-separated list of settings
+    /// describing the path of the desired value in the configuration.
+    /// Returns `None` if the path is invalid. A path is invalid if it is not syntactically
+    /// well-formed, if it attempts to index an array or list beyond the limit, or if it
+    /// includes an unknown setting.
+    /// 
+    /// # Examples
+    /// Suppose we have loaded a configuration that consists of:
+    ///
+    /// ```text
+    /// my_string = "hello";
+    /// a_list = ([1, 2, 3], true, { x = 4; }, "good bye");
+    /// ```
+    ///
+    /// Then, the path to retrieve `"hello"` is `my_string`.
+    /// The path to retrieve `true` inside `a_list` would be `a_list.[1]`.
+    /// The path to retrieve the setting `x` inside `a_list` would be `alist.[2].x`.
+    ///
+    /// Here's a small demonstration:
+    ///
+    /// ```
+    /// use config::reader::from_str;
+    /// use config::types::Lookup;
+    ///
+    /// let my_conf = from_str("my_string = \"hello\"; a_list = ([1, 2, 3], true, { x = 4; }, \"good_bye\");").unwrap();
+    ///
+    /// let my_str_value = my_conf.lookup("my_string");
+    /// assert!(my_str_value.is_some());
+    ///
+    /// let my_boolean_value = my_conf.lookup("a_list.[1]");
+    /// assert!(my_boolean_value.is_some());
+    ///
+    /// let my_x_setting = my_conf.lookup("a_list.[2].x");
+    /// assert!(my_x_setting.is_some());
+    ///
+    /// ```
+    fn lookup(&self, path: &str) -> Option<&Value>;
+
+    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
+    /// type of a generic `Value`.
+    ///
+    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
+    /// type does not match with the requested type - in this case, `bool`.
+    fn lookup_boolean(&self, path: &str) -> Option<bool> {
+        self.lookup(path).and_then(|v|
+                                   match v {
+                                       &Value::Svalue(ScalarValue::Boolean(b)) => Some(b),
+                                       _ => None
+                                   })
+    }
+
+    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
+    /// type of a generic `Value`.
+    ///
+    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
+    /// type does not match with the requested type - in this case, `i32`.
+    fn lookup_integer32(&self, path: &str) -> Option<i32> {
+        self.lookup(path).and_then(|v|
+                                   match v {
+                                       &Value::Svalue(ScalarValue::Integer32(x)) => Some(x),
+                                       _ => None
+                                   })
+    }
+
+    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
+    /// type of a generic `Value`.
+    ///
+    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
+    /// type does not match with the requested type - in this case, `i64`.
+    fn lookup_integer64(&self, path: &str) -> Option<i64> {
+        self.lookup(path).and_then(|v|
+                                   match v {
+                                       &Value::Svalue(ScalarValue::Integer64(x)) => Some(x),
+                                       _ => None
+                                   })
+    }
+
+    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
+    /// type of a generic `Value`.
+    ///
+    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
+    /// type does not match with the requested type - in this case, `f32`.
+    fn lookup_floating32(&self, path: &str) -> Option<f32> {
+        self.lookup(path).and_then(|v|
+                                   match v {
+                                       &Value::Svalue(ScalarValue::Floating32(x)) => Some(x),
+                                       _ => None
+                                   })
+    }
+
+    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
+    /// type of a generic `Value`.
+    ///
+    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
+    /// type does not match with the requested type - in this case, `f64`.
+    fn lookup_floating64(&self, path: &str) -> Option<f64> {
+        self.lookup(path).and_then(|v|
+                                   match v {
+                                       &Value::Svalue(ScalarValue::Floating64(x)) => Some(x),
+                                       _ => None
+                                   })
+    }
+
+    /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
+    /// type of a generic `Value`.
+    ///
+    /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
+    /// type does not match with the requested type - in this case, `String`.
+    fn lookup_str(&self, path: &str) -> Option<&str> {
+        self.lookup(path).and_then(|v|
+                                   match v {
+                                       &Value::Svalue(ScalarValue::Str(ref s)) => Some(&s[..]),
+                                       _ => None
+                                   })
+    }
+
+    /// A convenient wrapper around `lookup_boolean()` that unwraps the underlying primitive
+    /// type of a boolean `Value`.
+    ///
+    /// If either of `lookup_boolean()` or `lookup` return `None`,
+    /// then the user-provided default value is returned.
+    fn lookup_boolean_or(&self, path: &str, default: bool) -> bool {
+        self.lookup_boolean(path).unwrap_or(default)
+    }
+
+    /// A convenient wrapper around `lookup_integer32()` that unwraps the underlying primitive
+    /// type of an integer32 `Value`.
+    ///
+    /// If either of `lookup_integer32()` or `lookup` return `None`,
+    /// then the user-provided default value is returned.
+    fn lookup_integer32_or(&self, path: &str, default: i32) -> i32 {
+        self.lookup_integer32(path).unwrap_or(default)
+    }
+
+    /// A convenient wrapper around `lookup_integer64()` that unwraps the underlying primitive
+    /// type of an integer64 `Value`.
+    ///
+    /// If either of `lookup_integer64()` or `lookup` return `None`,
+    /// then the user-provided default value is returned.
+    fn lookup_integer64_or(&self, path: &str, default: i64) -> i64 {
+        self.lookup_integer64(path).unwrap_or(default)
+    }
+
+    /// A convenient wrapper around `lookup_floating32()` that unwraps the underlying primitive
+    /// type of an floating32 `Value`.
+    ///
+    /// If either of `lookup_floating32()` or `lookup` return `None`,
+    /// then the user-provided default value is returned.
+    fn lookup_floating32_or(&self, path: &str, default: f32) -> f32 {
+        self.lookup_floating32(path).unwrap_or(default)
+    }
+
+    /// A convenient wrapper around `lookup_floating64()` that unwraps the underlying primitive
+    /// type of an floating64 `Value`. If either of `lookup_floating64()` or `lookup` return `None`,
+    /// then the user-provided default value is returned.
+    fn lookup_floating64_or(&self, path: &str, default: f64) -> f64 {
+        self.lookup_floating64(path).unwrap_or(default)
+    }
+
+    /// A convenient wrapper around `lookup_str()` that unwraps the underlying primitive
+    /// type of a string `Value`.
+    ///
+    /// If either of `lookup_str()` or `lookup` return `None`,
+    /// then the user-provided default value is returned.
+    fn lookup_str_or<'a>(&'a self, path: &str, default: &'a str) -> &'a str {
+        self.lookup_str(path).unwrap_or(default)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::Config;
-    use types::{Value, ScalarValue, SettingsList, Setting};
+    use types::{Lookup, Value, ScalarValue, SettingsList, Setting};
 
     #[test]
     fn simple_lookup_generic_bool() {
@@ -738,5 +757,25 @@ mod test {
         let config: Config = "answer=42;".parse().unwrap();
         assert!(config.lookup_integer32("answer").is_some());
         assert_eq!(config.lookup_integer32("answer").unwrap().to_string(), "42".to_string());
+    }
+
+    #[test]
+    fn lookup_from_value() {
+        let mut inner = SettingsList::new();
+        inner.insert("value".to_string(),
+                     Setting::new("value".to_string(),
+                                  Value::Svalue(ScalarValue::Integer32(3))));
+
+        let mut my_settings = SettingsList::new();
+        my_settings.insert("group".to_string(),
+                           Setting::new("group".to_string(),
+                                        Value::Group(inner)));
+
+        let my_conf = Config::new(my_settings);
+
+        let group = my_conf.lookup("group")
+                           .expect("Failed to lookup 'group'");
+        let val = group.lookup_integer32("value");
+        assert_eq!(val, Some(3));
     }
 }
