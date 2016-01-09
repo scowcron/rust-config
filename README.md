@@ -18,7 +18,7 @@ As of 0.1.0, the library is compatible with both nightly and beta channels.
 
 ```toml
 [dependencies]
-config = "~0.1.0"
+config = "~0.2.0"
 ```
 
 # Getting started
