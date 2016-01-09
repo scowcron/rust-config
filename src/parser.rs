@@ -151,9 +151,9 @@ use std::str::from_utf8;
 use std::str::FromStr;
 use std::iter;
 
-use types::{SettingsList, Setting, Value, ScalarValue, ArrayValue, ListValue, Config};
+use types::{ArrayValue, Config, ListValue, ScalarValue, Setting, SettingsList, Value};
 
-use nom::{alpha, alphanumeric, digit, multispace, not_line_ending, eof};
+use nom::{alpha, alphanumeric, digit, eof, multispace, not_line_ending};
 use nom::IResult;
 use nom::IResult::*;
 
@@ -165,7 +165,7 @@ pub fn parse(config: &str) -> Result<Config, ParseError> {
     // TODO Descriptive errors
     match conf(&config.as_bytes()[..]) {
         Done(_, c) => Ok(c),
-        _          => Err(0)
+        _ => Err(0),
     }
 }
 
@@ -355,12 +355,13 @@ named!(group<&[u8], SettingsList>,
            tag!("{") ~
            l: settings_list ~
            tag!("}"),
-           || { l }));              
+           || { l }));
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~ Boolean values parser and auxiliary parsers ~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-named!(boolean_scalar_value<&[u8], ScalarValue>, alt!(bool_true_value | bool_false_value | bool_env_value));
+named!(boolean_scalar_value<&[u8], ScalarValue>,
+       alt!(bool_true_value | bool_false_value | bool_env_value));
 
 named!(bool_true_value<&[u8], ScalarValue>,
        alt!(chain!(
@@ -527,8 +528,9 @@ named!(int64_scalar_value<&[u8], ScalarValue>,
 
 // Special Integer parser with syntax $"ENV_VAR_NAME"::int which assumes the environment
 // variable $ENV_VAR_NAME as Integer and try to parse it. On parsing error it returns Integer32(0).
-// We do a little hack here to avoid double codding; we call int32_scalar_value and int64_scalar_value directly
-// on the value of the environment variable and iterpret the return value.
+// We do a little hack here to avoid double codding; we call int32_scalar_value and
+// int64_scalar_value directly on the value of the environment variable and iterpret the return
+// value.
 named!(int_env_value<&[u8], ScalarValue>,
        chain!(
              tag!("$") ~
@@ -640,9 +642,10 @@ named!(flt64_scalar_value<&[u8], ScalarValue>,
                 }));
 
 // Special Float parser with syntax $"ENV_VAR_NAME"::flt which assumes the environment
-// variable $ENV_VAR_NAME as Floating and try to parse it. On parsing error it returns Floating32(0).
-// We do a little hack here to avoid double codding; we call flt32_scalar_value and flt64_scalar_value directly 
-// on the value of the environment variable and iterpret the return value.
+// variable $ENV_VAR_NAME as Floating and try to parse it. On parsing error it returns
+// Floating32(0). We do a little hack here to avoid double codding; we call flt32_scalar_value and
+// flt64_scalar_value directly on the value of the environment variable and iterpret the return
+// value.
 // TODO(filipegoncalves) Generate errors if something fails
 named!(flt_env_value<&[u8], ScalarValue>,
        chain!(
@@ -758,38 +761,42 @@ fn char_lit(lit: &str) -> (char, isize) {
     let mut chars = lit.chars();
     let c = match (chars.next(), chars.next()) {
         (Some(c), None) if c != '\\' => return (c, 1),
-        (Some('\\'), Some(c)) => match c {
-            '"' => Some('"'),
-            'n' => Some('\n'),
-            'r' => Some('\r'),
-            't' => Some('\t'),
-            '\\' => Some('\\'),
-            '\'' => Some('\''),
-            '0' => Some('\0'),
-            _ => { None }
-        },
-        _ => panic!("lexer accepted invalid char escape `{}`", lit)
+        (Some('\\'), Some(c)) => {
+            match c {
+                '"' => Some('"'),
+                'n' => Some('\n'),
+                'r' => Some('\r'),
+                't' => Some('\t'),
+                '\\' => Some('\\'),
+                '\'' => Some('\''),
+                '0' => Some('\0'),
+                _ => None,
+            }
+        }
+        _ => panic!("lexer accepted invalid char escape `{}`", lit),
     };
 
     match c {
         Some(x) => return (x, 2),
-        None => { }
+        None => {}
     }
 
     let msg = format!("lexer should have rejected a bad character escape {}", lit);
     let msg2 = &msg[..];
 
     fn esc(len: usize, lit: &str) -> Option<(char, isize)> {
-        u32::from_str_radix(&lit[2..len], 16).ok()
-        .and_then(char::from_u32)
-        .map(|x| (x, len as isize))
+        u32::from_str_radix(&lit[2..len], 16)
+            .ok()
+            .and_then(char::from_u32)
+            .map(|x| (x, len as isize))
     }
 
     let unicode_escape = || -> Option<(char, isize)> {
         if lit.as_bytes()[2] == b'{' {
             let idx = lit.find('}').expect(msg2);
             let subslice = &lit[3..idx];
-            u32::from_str_radix(subslice, 16).ok()
+            u32::from_str_radix(subslice, 16)
+                .ok()
                 .and_then(char::from_u32)
                 .map(|x| (x, subslice.chars().count() as isize + 4))
         } else {
@@ -799,11 +806,12 @@ fn char_lit(lit: &str) -> (char, isize) {
 
     // Unicode escapes
     return match lit.as_bytes()[1] as char {
-        'x' | 'X' => esc(4, lit),
-        'u' => unicode_escape(),
-        'U' => esc(10, lit),
-        _ => None,
-    }.expect(msg2);
+               'x' | 'X' => esc(4, lit),
+               'u' => unicode_escape(),
+               'U' => esc(10, lit),
+               _ => None,
+           }
+           .expect(msg2);
 }
 
 /// Parse a string representing a string literal into its final form. Does
@@ -820,8 +828,10 @@ fn str_lit(lit: &str) -> String {
             match it.peek().map(|x| x.1) {
                 Some(' ') | Some('\n') | Some('\r') | Some('\t') => {
                     it.next();
-                },
-                _ => { break; }
+                }
+                _ => {
+                    break;
+                }
             }
         }
     }
@@ -832,17 +842,17 @@ fn str_lit(lit: &str) -> String {
             Some((i, c)) => {
                 match c {
                     '\\' => {
-                        let ch = chars.peek().unwrap_or_else(|| {
-                            panic!("{}", error(i))
-                        }).1;
+                        let ch = chars.peek()
+                                      .unwrap_or_else(|| panic!("{}", error(i)))
+                                      .1;
 
                         if ch == '\n' {
                             eat(&mut chars);
                         } else if ch == '\r' {
                             chars.next();
-                            let ch = chars.peek().unwrap_or_else(|| {
-                                panic!("{}", error(i))
-                            }).1;
+                            let ch = chars.peek()
+                                          .unwrap_or_else(|| panic!("{}", error(i)))
+                                          .1;
 
                             if ch != '\n' {
                                 panic!("lexer accepted bare CR");
@@ -851,16 +861,17 @@ fn str_lit(lit: &str) -> String {
                         } else {
                             // otherwise, a normal escape
                             let (c, n) = char_lit(&lit[i..]);
-                            for _ in 0..n - 1 { // we don't need to move past the first \
+                            for _ in 0..n - 1 {
+                                // we don't need to move past the first \
                                 chars.next();
                             }
                             res.push(c);
                         }
-                    },
+                    }
                     '\r' => {
-                        let ch = chars.peek().unwrap_or_else(|| {
-                            panic!("{}", error(i))
-                        }).1;
+                        let ch = chars.peek()
+                                      .unwrap_or_else(|| panic!("{}", error(i)))
+                                      .1;
 
                         if ch != '\n' {
                             panic!("lexer accepted bare CR");
@@ -870,8 +881,8 @@ fn str_lit(lit: &str) -> String {
                     }
                     c => res.push(c),
                 }
-            },
-            None => break
+            }
+            None => break,
         }
     }
 
@@ -881,24 +892,24 @@ fn str_lit(lit: &str) -> String {
 
 #[cfg(test)]
 mod test {
-    use super::{setting_name, setting, settings_list};
-    use super::{escaped_seq, not_escaped_seq, string_literal, str_scalar_value};
-    use super::{eol, comment_one_line, comment_block, blanks};
-    use super::{flt_base_w_digits_bef_dot, flt_base_no_digits_bef_dot, flt_base, flt_exponent};
-    use super::{flt32_scalar_value, flt64_scalar_value, flt_scalar_value, auto_env_scalar_value};
+    use super::{setting, setting_name, settings_list};
+    use super::{escaped_seq, not_escaped_seq, str_scalar_value, string_literal};
+    use super::{blanks, comment_block, comment_one_line, eol};
+    use super::{flt_base, flt_base_no_digits_bef_dot, flt_base_w_digits_bef_dot, flt_exponent};
+    use super::{auto_env_scalar_value, flt32_scalar_value, flt64_scalar_value, flt_scalar_value};
     use super::{int32_scalar_value, int64_scalar_value, int_scalar_value};
-    use super::{bool_true_value, bool_false_value, boolean_scalar_value, scalar_value};
+    use super::{bool_false_value, bool_true_value, boolean_scalar_value, scalar_value};
     use super::{boolean_array_elements, str_array_elements};
-    use super::{flt64_array_elements, flt32_array_elements};
-    use super::{int64_array_elements, int32_array_elements};
-    use super::{value, array, group, list};
+    use super::{flt32_array_elements, flt64_array_elements};
+    use super::{int32_array_elements, int64_array_elements};
+    use super::{array, group, list, value};
     use super::conf;
 
     use nom::ErrorKind;
     use nom::Err::Position;
     use nom::IResult::*;
 
-    use types::{Setting, SettingsList, Value, ScalarValue, Config};
+    use types::{Config, ScalarValue, Setting, SettingsList, Value};
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // ~~~ Parser components tests ~~~
@@ -947,55 +958,60 @@ mod test {
     fn setting_name_bad_symbol_prefix() {
         let a_setting = &b"__not_allowed"[..];
         let res = setting_name(a_setting);
-        assert_eq!(res, Error(Position(ErrorKind::Alpha, &b"__not_allowed"[..])));
+        assert_eq!(res,
+                   Error(Position(ErrorKind::Alpha, &b"__not_allowed"[..])));
     }
 
     #[test]
     fn single_setting() {
         let a_setting = &b"a_test__2 = \n\n\t19L;\r\n"[..];
         let res = setting(a_setting);
-        assert_eq!(res, Done(&b""[..], Setting::new(
-            "a_test__2".to_string(),
-            Value::Svalue(ScalarValue::Integer64(19)))));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        Setting::new("a_test__2".to_string(),
+                                     Value::Svalue(ScalarValue::Integer64(19)))));
     }
 
     #[test]
     fn single_setting2() {
         let a_setting = &b"mysql_user:\"root\";"[..];
         let res = setting(a_setting);
-        assert_eq!(res, Done(&b""[..], Setting::new(
-            "mysql_user".to_string(),
-            Value::Svalue(ScalarValue::Str("root".to_string())))));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        Setting::new("mysql_user".to_string(),
+                                     Value::Svalue(ScalarValue::Str("root".to_string())))));
     }
 
     #[test]
     fn single_setting3() {
         let a_setting = &b"\n\tcountry   : \"USA\"\n\n;"[..];
         let res = setting(a_setting);
-        assert_eq!(res, Done(&b""[..], Setting::new(
-            "country".to_string(),
-            Value::Svalue(ScalarValue::Str("USA".to_string())))));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        Setting::new("country".to_string(),
+                                     Value::Svalue(ScalarValue::Str("USA".to_string())))));
     }
 
     #[test]
     fn single_setting_list() {
         let a_setting = &b"codes: (1, 2, 3);"[..];
         let res = setting(a_setting);
-        assert_eq!(res, Done(&b""[..], Setting::new(
-            "codes".to_string(),
-            Value::List(vec![
-                Value::Svalue(ScalarValue::Integer32(1)),
-                Value::Svalue(ScalarValue::Integer32(2)),
-                Value::Svalue(ScalarValue::Integer32(3))]))));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        Setting::new("codes".to_string(),
+                                     Value::List(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                                      Value::Svalue(ScalarValue::Integer32(2)),
+                                                      Value::Svalue(ScalarValue::Integer32(3))]))));
     }
 
     #[test]
     fn single_setting_array() {
         let a_setting = &b"codes: [1, 2, 3];"[..];
         let res = setting(a_setting);
-        assert_eq!(res, Done(&b""[..], Setting::new(
-            "codes".to_string(),
-            Value::Array(vec![
+        assert_eq!(res,
+                   Done(&b""[..],
+                        Setting::new("codes".to_string(),
+                                     Value::Array(vec![
                 Value::Svalue(ScalarValue::Integer32(1)),
                 Value::Svalue(ScalarValue::Integer32(2)),
                 Value::Svalue(ScalarValue::Integer32(3))]))));
@@ -1012,7 +1028,9 @@ mod test {
         grp.insert("y".to_string(),
                    Setting::new("y".to_string(), Value::Svalue(ScalarValue::Integer32(2))));
 
-        assert_eq!(res, Done(&b""[..], Setting::new("misc".to_string(), Value::Group(grp))));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        Setting::new("misc".to_string(), Value::Group(grp))));
     }
 
     #[test]
@@ -1038,7 +1056,7 @@ mod test {
     fn not_escaped_sequence() {
         let a_sequence = &b"a regular string without escaped sequences\""[..];
         let res = not_escaped_seq(a_sequence);
-        assert_eq!(res, Done(&b"\""[..], &a_sequence[..a_sequence.len()-1]));
+        assert_eq!(res, Done(&b"\""[..], &a_sequence[..a_sequence.len() - 1]));
     }
 
     #[test]
@@ -1101,7 +1119,7 @@ mod test {
     fn empty_str_lit() {
         let input = &b"\"\""[..];
         let res = string_literal(input);
-        assert_eq!(res, Done(&b""[..], String::new()));        
+        assert_eq!(res, Done(&b""[..], String::new()));
     }
 
     #[test]
@@ -1115,14 +1133,16 @@ mod test {
     fn str_lit_with_escapes() {
         let input = &b"\"And he said: \\\"Hello, world!\\\"\\n\""[..];
         let res = string_literal(input);
-        assert_eq!(res, Done(&b""[..], "And he said: \"Hello, world!\"\n".to_string()));
+        assert_eq!(res,
+                   Done(&b""[..], "And he said: \"Hello, world!\"\n".to_string()));
     }
 
     #[test]
     fn str_lit_with_escapes2() {
         let input = &b"\"And he said: \\\"Hello, world!\\\"\""[..];
         let res = string_literal(input);
-        assert_eq!(res, Done(&b""[..], "And he said: \"Hello, world!\"".to_string()));
+        assert_eq!(res,
+                   Done(&b""[..], "And he said: \"Hello, world!\"".to_string()));
     }
 
     #[test]
@@ -1136,71 +1156,83 @@ mod test {
     fn str_lit_with_escapes4() {
         let input = &b"\"A backslash in quotes: \\\"\\\\\\\"\""[..];
         let res = string_literal(input);
-        assert_eq!(res, Done(&b""[..], "A backslash in quotes: \"\\\"".to_string()));
+        assert_eq!(res,
+                   Done(&b""[..], "A backslash in quotes: \"\\\"".to_string()));
     }
 
     #[test]
     fn str_lit_with_escapes5() {
         let input = &b"\"escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" with escapes.\\\";\""[..];
         let res = string_literal(input);
-        assert_eq!(res, Done(&b""[..],
-                             "escaped_str=\"Just a \\\"test\\\" with escapes.\";".to_string()));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        "escaped_str=\"Just a \\\"test\\\" with escapes.\";".to_string()));
     }
 
     #[test]
     fn single_str_scalar_value() {
         let input = &b"\"a string literal\""[..];
         let res = str_scalar_value(input);
-        assert_eq!(res, Done(&b""[..], ScalarValue::Str("a string literal".to_string())));
+        assert_eq!(res,
+                   Done(&b""[..], ScalarValue::Str("a string literal".to_string())));
     }
 
     #[test]
     fn single_str_scalar_value2() {
         let input = &b"\"A backslash in quotes: \\\"\\\\\\\"\""[..];
         let res = str_scalar_value(input);
-        assert_eq!(res, Done(&b""[..], ScalarValue::Str(
-            "A backslash in quotes: \"\\\"".to_string())));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        ScalarValue::Str("A backslash in quotes: \"\\\"".to_string())));
     }
 
     #[test]
     fn single_str_scalar_value3() {
         let input = &b"\"escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" with escapes.\\\";\""[..];
         let res = str_scalar_value(input);
-        assert_eq!(res, Done(&b""[..], ScalarValue::Str(
-            "escaped_str=\"Just a \\\"test\\\" with escapes.\";".to_string())));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        ScalarValue::Str("escaped_str=\"Just a \\\"test\\\" with escapes.\";"
+                                             .to_string())));
     }
 
     #[test]
     fn multi_str_scalar_value() {
         let input = &b"\"string\"\n\n\" literals\"\t\" to\"    \" the rescue\""[..];
         let res = str_scalar_value(input);
-        assert_eq!(res, Done(&b""[..], ScalarValue::Str(
-            "string literals to the rescue".to_string())));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        ScalarValue::Str("string literals to the rescue".to_string())));
     }
 
     #[test]
     fn multi_str_scalar_value2() {
         let input = &concat!("\"escaped_\"\"str=\\\"Just a \\\\\"\r\n\r\n   \"\\\"te\"\t\t  ",
-                             "\t\t\"st\\\\\\\" \"\n\"wi\"\"th escapes.\\\";\"").as_bytes()[..];
+                             "\t\t\"st\\\\\\\" \"\n\"wi\"\"th escapes.\\\";\"")
+                         .as_bytes()[..];
         let res = str_scalar_value(input);
-        assert_eq!(res, Done(&b""[..], ScalarValue::Str(
-            "escaped_str=\"Just a \\\"test\\\" with escapes.\";".to_string())));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        ScalarValue::Str("escaped_str=\"Just a \\\"test\\\" with escapes.\";"
+                                             .to_string())));
     }
 
     #[test]
     fn multi_str_scalar_value3() {
         let input = &b"\"string\"\n//Test\n\" literals\"\t\" to\"    \" the rescue\""[..];
         let res = str_scalar_value(input);
-        assert_eq!(res, Done(&b""[..], ScalarValue::Str(
-            "string literals to the rescue".to_string())));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        ScalarValue::Str("string literals to the rescue".to_string())));
     }
 
     #[test]
     fn multi_str_scalar_value4() {
         let input = &b"\"string\"/*test*/\" literals\"\t\" to\" /**/   \" the rescue\""[..];
         let res = str_scalar_value(input);
-        assert_eq!(res, Done(&b""[..], ScalarValue::Str(
-            "string literals to the rescue".to_string())));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        ScalarValue::Str("string literals to the rescue".to_string())));
     }
 
     #[test]
@@ -1235,7 +1267,8 @@ mod test {
     fn one_line_comment_bad() {
         let input = &b"not a comment // see?"[..];
         let res = comment_one_line(input);
-        assert_eq!(res, Error(Position(ErrorKind::Alt, &b"not a comment // see?"[..])));
+        assert_eq!(res,
+                   Error(Position(ErrorKind::Alt, &b"not a comment // see?"[..])));
     }
 
     #[test]
@@ -1270,7 +1303,8 @@ mod test {
     fn comment_blk_bad() {
         let input = &b"not a comment /* see?"[..];
         let res = comment_block(input);
-        assert_eq!(res, Error(Position(ErrorKind::Tag, &b"not a comment /* see?"[..])));
+        assert_eq!(res,
+                   Error(Position(ErrorKind::Tag, &b"not a comment /* see?"[..])));
     }
 
     #[test]
@@ -1299,15 +1333,17 @@ mod test {
         let input = &b"/*/*/*Again, they don't \n*nest*/See? We're not in a comment now."[..];
         let res = comment_block(input);
         // Hah! A trap :) The comment ends with the first occurrence of `*/`
-        assert_eq!(res, Done(&b"*Again, they don't \n*nest*/See? We're not in a comment now."[..],
-                             &b""[..]));
+        assert_eq!(res,
+                   Done(&b"*Again, they don't \n*nest*/See? We're not in a comment now."[..],
+                        &b""[..]));
     }
 
     #[test]
     fn comment_blk5() {
         let input = &b"/*/*\n *Again, they don't \n *nest*/See? We're not in a comment now."[..];
         let res = comment_block(input);
-        assert_eq!(res, Done(&b"See? We're not in a comment now."[..], &b""[..]));
+        assert_eq!(res,
+                   Done(&b"See? We're not in a comment now."[..], &b""[..]));
     }
 
     #[test]
@@ -1426,7 +1462,8 @@ mod test {
     fn flt_base_no_digits_before_dot3() {
         let input = &b".\n"[..];
         let res = flt_base_no_digits_bef_dot(input);
-        assert_eq!(res, Error(Position(ErrorKind::Digit, &b"\n"[..] /* dot is consumed */)));
+        assert_eq!(res,
+                   Error(Position(ErrorKind::Digit, &b"\n"[..] /* dot is consumed */)));
     }
 
     #[test]
@@ -1489,7 +1526,8 @@ mod test {
     fn flt_exponent_value() {
         let input = &b"eee"[..];
         let res = flt_exponent(input);
-        assert_eq!(res, Error(Position(ErrorKind::Digit, &b"ee"[..] /* one e consumed */)));
+        assert_eq!(res,
+                   Error(Position(ErrorKind::Digit, &b"ee"[..] /* one e consumed */)));
     }
 
     #[test]
@@ -1629,14 +1667,16 @@ mod test {
     fn flt_as_scalar9() {
         let input = &b"-.25e-2\r\n\r\n"[..];
         let res = flt_scalar_value(input);
-        assert_eq!(res, Done(&b"\r\n\r\n"[..], ScalarValue::Floating32(-0.25e-2)));
+        assert_eq!(res,
+                   Done(&b"\r\n\r\n"[..], ScalarValue::Floating32(-0.25e-2)));
     }
 
     #[test]
     fn flt_as_scalar10() {
         let input = &b"1.5e1with more input"[..];
         let res = flt_scalar_value(input);
-        assert_eq!(res, Done(&b"with more input"[..], ScalarValue::Floating32(15.0)));
+        assert_eq!(res,
+                   Done(&b"with more input"[..], ScalarValue::Floating32(15.0)));
     }
 
     #[test]
@@ -1734,14 +1774,16 @@ mod test {
     fn flt_l_as_scalar9() {
         let input = &b"-.25e-2L\r\n\r\n"[..];
         let res = flt_scalar_value(input);
-        assert_eq!(res, Done(&b"\r\n\r\n"[..], ScalarValue::Floating64(-0.25e-2)));
+        assert_eq!(res,
+                   Done(&b"\r\n\r\n"[..], ScalarValue::Floating64(-0.25e-2)));
     }
 
     #[test]
     fn flt_l_as_scalar10() {
         let input = &b"1.5e1Lwith more input"[..];
         let res = flt_scalar_value(input);
-        assert_eq!(res, Done(&b"with more input"[..], ScalarValue::Floating64(15.0)));
+        assert_eq!(res,
+                   Done(&b"with more input"[..], ScalarValue::Floating64(15.0)));
     }
 
     #[test]
@@ -1783,7 +1825,8 @@ mod test {
     fn flt_l_as_scalar16() {
         let input = &b"4503599627370496.L;\n"[..];
         let res = flt_scalar_value(input);
-        assert_eq!(res, Done(&b";\n"[..], ScalarValue::Floating64(4503599627370496.0)));
+        assert_eq!(res,
+                   Done(&b";\n"[..], ScalarValue::Floating64(4503599627370496.0)));
     }
 
     #[test]
@@ -1888,7 +1931,8 @@ mod test {
     fn integer_l_scalar_value6() {
         let input = &b"9223372000000000000L\n"[..];
         let res = int_scalar_value(input);
-        assert_eq!(res, Done(&b"\n"[..], ScalarValue::Integer64(9223372000000000000i64)));
+        assert_eq!(res,
+                   Done(&b"\n"[..], ScalarValue::Integer64(9223372000000000000i64)));
     }
 
     #[test]
@@ -1979,108 +2023,129 @@ mod test {
     fn bool_array_elems() {
         let input = &b"true, true, no, yes, false\n\n];"[..];
         let res = boolean_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![
-            Value::Svalue(ScalarValue::Boolean(true)),
-            Value::Svalue(ScalarValue::Boolean(true)),
-            Value::Svalue(ScalarValue::Boolean(false)),
-            Value::Svalue(ScalarValue::Boolean(true)),
-            Value::Svalue(ScalarValue::Boolean(false))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Boolean(true)),
+                             Value::Svalue(ScalarValue::Boolean(true)),
+                             Value::Svalue(ScalarValue::Boolean(false)),
+                             Value::Svalue(ScalarValue::Boolean(true)),
+                             Value::Svalue(ScalarValue::Boolean(false))]));
     }
 
     #[test]
     fn bool_array_elems2() {
         let input = &b"true]"[..];
         let res = boolean_array_elements(input);
-        assert_eq!(res, Done(&b"]"[..], vec![Value::Svalue(ScalarValue::Boolean(true))]));
+        assert_eq!(res,
+                   Done(&b"]"[..], vec![Value::Svalue(ScalarValue::Boolean(true))]));
     }
 
     #[test]
     fn bool_array_elems3() {
         let input = &b"true, false/*test*/\n//lala\n];"[..];
         let res = boolean_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![
-            Value::Svalue(ScalarValue::Boolean(true)),
-            Value::Svalue(ScalarValue::Boolean(false))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Boolean(true)),
+                             Value::Svalue(ScalarValue::Boolean(false))]));
     }
 
     #[test]
     fn string_array_elems() {
         let input = &b"\"a\", \"1\", \"b\"\n];"[..];
         let res = str_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Str("a".to_string())),
-                                              Value::Svalue(ScalarValue::Str("1".to_string())),
-                                              Value::Svalue(ScalarValue::Str("b".to_string()))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Str("a".to_string())),
+                             Value::Svalue(ScalarValue::Str("1".to_string())),
+                             Value::Svalue(ScalarValue::Str("b".to_string()))]));
     }
 
     #[test]
     fn string_array_elems2() {
         let input = &b"\"a\"\"1\"/**/\"b\"\n];"[..];
         let res = str_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Str("a1b".to_string()))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Str("a1b".to_string()))]));
     }
 
     #[test]
     fn flt64_array_elems() {
         let input = &b"1.E4L, 5.0L  , 0.5L];"[..];
         let res = flt64_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Floating64(1.0e4)),
-                                              Value::Svalue(ScalarValue::Floating64(5.0)),
-                                              Value::Svalue(ScalarValue::Floating64(0.5))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Floating64(1.0e4)),
+                             Value::Svalue(ScalarValue::Floating64(5.0)),
+                             Value::Svalue(ScalarValue::Floating64(0.5))]));
     }
 
     #[test]
     fn flt64_array_elems2() {
         let input = &b"-5.0e-1L];"[..];
         let res = flt64_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Floating64(-5.0e-1))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Floating64(-5.0e-1))]));
     }
 
     #[test]
     fn flt32_array_elems() {
         let input = &b"1.E4, 5.0  , 0.5];"[..];
         let res = flt32_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Floating32(1.0e4)),
-                                              Value::Svalue(ScalarValue::Floating32(5.0)),
-                                              Value::Svalue(ScalarValue::Floating32(0.5))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Floating32(1.0e4)),
+                             Value::Svalue(ScalarValue::Floating32(5.0)),
+                             Value::Svalue(ScalarValue::Floating32(0.5))]));
     }
 
     #[test]
     fn flt32_array_elems2() {
         let input = &b"-5.0e-1];"[..];
         let res = flt32_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Floating32(-5.0e-1))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Floating32(-5.0e-1))]));
     }
 
     #[test]
     fn int64_array_elems() {
         let input = &b"1L, 5L  , 6L];"[..];
         let res = int64_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Integer64(1)),
-                                              Value::Svalue(ScalarValue::Integer64(5)),
-                                              Value::Svalue(ScalarValue::Integer64(6))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Integer64(1)),
+                             Value::Svalue(ScalarValue::Integer64(5)),
+                             Value::Svalue(ScalarValue::Integer64(6))]));
     }
 
     #[test]
     fn int64_array_elems2() {
         let input = &b"1L];"[..];
         let res = int64_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Integer64(1))]));
+        assert_eq!(res,
+                   Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Integer64(1))]));
     }
 
     #[test]
     fn int32_array_elems() {
         let input = &b"1, 5  , 6];"[..];
         let res = int32_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Integer32(1)),
-                                              Value::Svalue(ScalarValue::Integer32(5)),
-                                              Value::Svalue(ScalarValue::Integer32(6))]));
+        assert_eq!(res,
+                   Done(&b"];"[..],
+                        vec![Value::Svalue(ScalarValue::Integer32(1)),
+                             Value::Svalue(ScalarValue::Integer32(5)),
+                             Value::Svalue(ScalarValue::Integer32(6))]));
     }
 
     #[test]
     fn int32_array_elems2() {
         let input = &b"1];"[..];
         let res = int32_array_elements(input);
-        assert_eq!(res, Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Integer32(1))]));
+        assert_eq!(res,
+                   Done(&b"];"[..], vec![Value::Svalue(ScalarValue::Integer32(1))]));
     }
 
     #[test]
@@ -2101,74 +2166,83 @@ mod test {
     fn bad_array() {
         let input = &b"[true, \"a\", 14, 19, 5.0e1];\n"[..];
         let res = array(input);
-        assert_eq!(res, Error(Position(ErrorKind::Alt, &b"[true, \"a\", 14, 19, 5.0e1];\n"[..])));
+        assert_eq!(res,
+                   Error(Position(ErrorKind::Alt, &b"[true, \"a\", 14, 19, 5.0e1];\n"[..])));
     }
 
     #[test]
     fn bad_array2() {
         let input = &b"[\"a bad array\", 12, 3.0e-1, true];\n"[..];
         let res = array(input);
-        assert_eq!(res, Error(Position(ErrorKind::Alt, &b"[\"a bad array\", 12, 3.0e-1, true];\n"[..])));
+        assert_eq!(res,
+                   Error(Position(ErrorKind::Alt,
+                                  &b"[\"a bad array\", 12, 3.0e-1, true];\n"[..])));
     }
 
     #[test]
     fn bool_array() {
         let input = &b"[  true\t, yes//a test\n, \n\nfalse\n]\n;"[..];
         let res = array(input);
-        assert_eq!(res, Done(&b"\n;"[..], Value::Array(vec![
-            Value::Svalue(ScalarValue::Boolean(true)),
-            Value::Svalue(ScalarValue::Boolean(true)),
-            Value::Svalue(ScalarValue::Boolean(false))])));
+        assert_eq!(res,
+                   Done(&b"\n;"[..],
+                        Value::Array(vec![Value::Svalue(ScalarValue::Boolean(true)),
+                                          Value::Svalue(ScalarValue::Boolean(true)),
+                                          Value::Svalue(ScalarValue::Boolean(false))])));
     }
 
     #[test]
     fn str_array() {
         let input = &b"[  \"a\", \"b\"//a test\n,\n\"c\\\\d\"\n]\n;"[..];
         let res = array(input);
-        assert_eq!(res, Done(&b"\n;"[..], Value::Array(vec![
-            Value::Svalue(ScalarValue::Str("a".to_string())),
-            Value::Svalue(ScalarValue::Str("b".to_string())),
-            Value::Svalue(ScalarValue::Str("c\\d".to_string()))])));
+        assert_eq!(res,
+                   Done(&b"\n;"[..],
+                        Value::Array(vec![Value::Svalue(ScalarValue::Str("a".to_string())),
+                                          Value::Svalue(ScalarValue::Str("b".to_string())),
+                                          Value::Svalue(ScalarValue::Str("c\\d".to_string()))])));
     }
 
     #[test]
     fn flt64_array() {
         let input = &b"[1.E4L, 5.0L  , 0.5L];"[..];
         let res = array(input);
-        assert_eq!(res, Done(&b";"[..], Value::Array(vec![
-            Value::Svalue(ScalarValue::Floating64(1.0e4)),
-            Value::Svalue(ScalarValue::Floating64(5.0)),
-            Value::Svalue(ScalarValue::Floating64(0.5))])));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        Value::Array(vec![Value::Svalue(ScalarValue::Floating64(1.0e4)),
+                                          Value::Svalue(ScalarValue::Floating64(5.0)),
+                                          Value::Svalue(ScalarValue::Floating64(0.5))])));
     }
 
     #[test]
     fn flt32_array() {
         let input = &b"[1.E4, 5.0  , 0.5];"[..];
         let res = array(input);
-        assert_eq!(res, Done(&b";"[..], Value::Array(vec![
-            Value::Svalue(ScalarValue::Floating32(1.0e4)),
-            Value::Svalue(ScalarValue::Floating32(5.0)),
-            Value::Svalue(ScalarValue::Floating32(0.5))])));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        Value::Array(vec![Value::Svalue(ScalarValue::Floating32(1.0e4)),
+                                          Value::Svalue(ScalarValue::Floating32(5.0)),
+                                          Value::Svalue(ScalarValue::Floating32(0.5))])));
     }
 
     #[test]
     fn int64_array() {
         let input = &b"[1L, 5L  , 55L];"[..];
         let res = array(input);
-        assert_eq!(res, Done(&b";"[..], Value::Array(vec![
-            Value::Svalue(ScalarValue::Integer64(1)),
-            Value::Svalue(ScalarValue::Integer64(5)),
-            Value::Svalue(ScalarValue::Integer64(55))])));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        Value::Array(vec![Value::Svalue(ScalarValue::Integer64(1)),
+                                          Value::Svalue(ScalarValue::Integer64(5)),
+                                          Value::Svalue(ScalarValue::Integer64(55))])));
     }
 
     #[test]
     fn int32_array() {
         let input = &b"[1, 5  , 55];"[..];
         let res = array(input);
-        assert_eq!(res, Done(&b";"[..], Value::Array(vec![
-            Value::Svalue(ScalarValue::Integer32(1)),
-            Value::Svalue(ScalarValue::Integer32(5)),
-            Value::Svalue(ScalarValue::Integer32(55))])));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        Value::Array(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                          Value::Svalue(ScalarValue::Integer32(5)),
+                                          Value::Svalue(ScalarValue::Integer32(55))])));
     }
 
     #[test]
@@ -2210,50 +2284,57 @@ mod test {
     fn scalar_val6() {
         let input = &b"\"a string literal\";"[..];
         let res = scalar_value(input);
-        assert_eq!(res, Done(&b";"[..], ScalarValue::Str("a string literal".to_string())));
+        assert_eq!(res,
+                   Done(&b";"[..], ScalarValue::Str("a string literal".to_string())));
     }
 
     #[test]
     fn scalar_val7() {
         let input = &b"\"he said: \\\"hello\\\"\";"[..];
         let res = scalar_value(input);
-        assert_eq!(res, Done(&b";"[..], ScalarValue::Str("he said: \"hello\"".to_string())));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        ScalarValue::Str("he said: \"hello\"".to_string())));
     }
 
     #[test]
     fn scalar_val8() {
         let input = &b"\"he\"\" said:\" \r\n//lala\r\n\" \\\"hello\\\"\";"[..];
         let res = scalar_value(input);
-        assert_eq!(res, Done(&b";"[..], ScalarValue::Str("he said: \"hello\"".to_string())));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        ScalarValue::Str("he said: \"hello\"".to_string())));
     }
 
     #[test]
     fn single_value() {
         let a_value = &b"\"USA\"\n\n;"[..];
         let res = value(a_value);
-        assert_eq!(res, Done(&b";"[..], Value::Svalue(ScalarValue::Str("USA".to_string()))));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        Value::Svalue(ScalarValue::Str("USA".to_string()))));
     }
 
     #[test]
     fn single_value_list() {
         let a_value = &b"(1, 2, 3);"[..];
         let res = value(a_value);
-        assert_eq!(res, Done(&b";"[..],
-                             Value::List(vec![
-                                 Value::Svalue(ScalarValue::Integer32(1)),
-                                 Value::Svalue(ScalarValue::Integer32(2)),
-                                 Value::Svalue(ScalarValue::Integer32(3))])));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        Value::List(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                         Value::Svalue(ScalarValue::Integer32(2)),
+                                         Value::Svalue(ScalarValue::Integer32(3))])));
     }
 
     #[test]
     fn single_value_array() {
         let a_value = &b"[1, 2, 3];"[..];
         let res = value(a_value);
-        assert_eq!(res, Done(&b";"[..],
-                             Value::Array(vec![
-                                 Value::Svalue(ScalarValue::Integer32(1)),
-                                 Value::Svalue(ScalarValue::Integer32(2)),
-                                 Value::Svalue(ScalarValue::Integer32(3))])));
+        assert_eq!(res,
+                   Done(&b";"[..],
+                        Value::Array(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                          Value::Svalue(ScalarValue::Integer32(2)),
+                                          Value::Svalue(ScalarValue::Integer32(3))])));
     }
 
     #[test]
@@ -2288,11 +2369,11 @@ mod test {
     fn single_list() {
         let a_list = &b"(1, 2, 3)"[..];
         let res = list(a_list);
-        assert_eq!(res, Done(&b""[..],
-                             Value::List(vec![
-                                 Value::Svalue(ScalarValue::Integer32(1)),
-                                 Value::Svalue(ScalarValue::Integer32(2)),
-                                 Value::Svalue(ScalarValue::Integer32(3))])));
+        assert_eq!(res,
+                   Done(&b""[..],
+                        Value::List(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                         Value::Svalue(ScalarValue::Integer32(2)),
+                                         Value::Svalue(ScalarValue::Integer32(3))])));
     }
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2301,11 +2382,10 @@ mod test {
 
     #[test]
     fn blank_conf() {
-        let confs = vec![
-            conf(&b"     \n"[..]),
-            conf(&b"\t\t"[..]),
-            conf(&b"\r"[..]),
-            conf(&b"\r\n   \t  \t\r\n\n\n\n\r\r\r\r  \n"[..])];
+        let confs = vec![conf(&b"     \n"[..]),
+                         conf(&b"\t\t"[..]),
+                         conf(&b"\r"[..]),
+                         conf(&b"\r\n   \t  \t\r\n\n\n\n\r\r\r\r  \n"[..])];
 
         for pconf in confs.into_iter() {
             assert_eq!(pconf, Done(&b""[..], Config::new(SettingsList::new())));
@@ -2361,15 +2441,15 @@ mod test {
     #[test]
     fn conf_integer32_scalar() {
         let parsed = conf(&concat!("\n\nmiles :  3;mpg=27;\nweight_lbs = \t44;\t\n\n",
-                                   "something_big = 2000000000;").as_bytes()[..]);
+                                   "something_big = 2000000000;")
+                               .as_bytes()[..]);
 
         let mut expected = SettingsList::new();
         expected.insert("miles".to_string(),
                         Setting::new("miles".to_string(),
                                      Value::Svalue(ScalarValue::Integer32(3))));
         expected.insert("mpg".to_string(),
-                        Setting::new("mpg".to_string(),
-                                     Value::Svalue(ScalarValue::Integer32(27))));
+                        Setting::new("mpg".to_string(), Value::Svalue(ScalarValue::Integer32(27))));
         expected.insert("weight_lbs".to_string(),
                         Setting::new("weight_lbs".to_string(),
                                      Value::Svalue(ScalarValue::Integer32(44))));
@@ -2385,15 +2465,15 @@ mod test {
         let parsed = conf(&concat!("miles: 300000000000000L\r\n;",
                                    "\r\n\n\nmpg=2L;",
                                    "weight_lbs=922000000000000000L;\n",
-                                   "loan_amount : \r\n8000000000000000001L;\t\t").as_bytes()[..]);
+                                   "loan_amount : \r\n8000000000000000001L;\t\t")
+                               .as_bytes()[..]);
 
         let mut expected = SettingsList::new();
         expected.insert("miles".to_string(),
                         Setting::new("miles".to_string(),
                                      Value::Svalue(ScalarValue::Integer64(300000000000000))));
         expected.insert("mpg".to_string(),
-                        Setting::new("mpg".to_string(),
-                                     Value::Svalue(ScalarValue::Integer64(2))));
+                        Setting::new("mpg".to_string(), Value::Svalue(ScalarValue::Integer64(2))));
         expected.insert("weight_lbs".to_string(),
                         Setting::new("weight_lbs".to_string(),
                                      Value::Svalue(ScalarValue::Integer64(922000000000000000i64))));
@@ -2418,7 +2498,8 @@ mod test {
                                    "lalala = .5e-5;\r\n",
                                    "num = 2.e1;\r\n",
                                    "num_ = 2.e-2;\r\n",
-                                   "num__ = 2.e+2;\r\n").as_bytes()[..]);
+                                   "num__ = 2.e+2;\r\n")
+                               .as_bytes()[..]);
 
         let mut expected = SettingsList::new();
         expected.insert("width".to_string(),
@@ -2468,8 +2549,8 @@ mod test {
         expected.insert("num__".to_string(),
                         Setting::new("num__".to_string(),
                                      Value::Svalue(ScalarValue::Floating32(2.0e+2))));
-          
-      assert_eq!(parsed, Done(&b""[..], Config::new(expected)));
+
+        assert_eq!(parsed, Done(&b""[..], Config::new(expected)));
     }
 
     #[test]
@@ -2501,14 +2582,14 @@ mod test {
 
     #[test]
     fn conf_str() {
-        let parsed = conf(
-            &concat!("\n\n\nserver_name\t= \"testing.org\"\r\n\r\n;\r\n\r\n",
-                     "escaped_str=\"Just a \\\"test\\\" with escapes.\";",
-                     "str_w_prime = \"He said: 'Hello!'\";\n",
-                     "quotes_everywhere = \"\\\"\\\"\";\n",
-                     "backslashes = \"A backslash in quotes: \\\"\\\\\\\"\";\n",
-                     "i=\"escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" ",
-                     "with escapes.\\\";\";").as_bytes()[..]);
+        let parsed = conf(&concat!("\n\n\nserver_name\t= \"testing.org\"\r\n\r\n;\r\n\r\n",
+                                   "escaped_str=\"Just a \\\"test\\\" with escapes.\";",
+                                   "str_w_prime = \"He said: 'Hello!'\";\n",
+                                   "quotes_everywhere = \"\\\"\\\"\";\n",
+                                   "backslashes = \"A backslash in quotes: \\\"\\\\\\\"\";\n",
+                                   "i=\"escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" ",
+                                   "with escapes.\\\";\";")
+                               .as_bytes()[..]);
 
         let mut expected = SettingsList::new();
         expected.insert("server_name".to_string(),
@@ -2517,29 +2598,29 @@ mod test {
         expected.insert("escaped_str".to_string(),
                         Setting::new("escaped_str".to_string(),
                                      Value::Svalue(ScalarValue::Str("Just a \"test\" with escapes."
-                                                                    .to_string()))));
+                                                                        .to_string()))));
         expected.insert("str_w_prime".to_string(),
                         Setting::new("str_w_prime".to_string(),
                                      Value::Svalue(ScalarValue::Str("He said: 'Hello!'"
-                                                                    .to_string()))));
+                                                                        .to_string()))));
         expected.insert("quotes_everywhere".to_string(),
                         Setting::new("quotes_everywhere".to_string(),
                                      Value::Svalue(ScalarValue::Str("\"\"".to_string()))));
         expected.insert("backslashes".to_string(),
                         Setting::new("backslashes".to_string(),
                                      Value::Svalue(ScalarValue::Str("A backslash in quotes: \"\\\""
-                                                                    .to_string()))));
-        /* Yes, this one is tricky. Here's how to break it down:
-         * The string literal representing the RHS of this setting is:
-         * escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" with escapes.\\\";
-         * At compile-time, Rust sees it as:
-         * escaped_str=\"Just a \\\"test\\\" with escapes.\"
-         * This is also what the parser will see. So, the expected result is:
-         * escaped_str="Just a \"test\" with escapes."
-         * This is the raw string associated to the setting `i` in our test.
-         * Finally, we escape special chars to get again a string literal for the expected result:
-         * escaped_str=\"Just a \\\"test\\\" with escapes.\"
-         */
+                                                                        .to_string()))));
+        // Yes, this one is tricky. Here's how to break it down:
+        // The string literal representing the RHS of this setting is:
+        // escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" with escapes.\\\";
+        // At compile-time, Rust sees it as:
+        // escaped_str=\"Just a \\\"test\\\" with escapes.\"
+        // This is also what the parser will see. So, the expected result is:
+        // escaped_str="Just a \"test\" with escapes."
+        // This is the raw string associated to the setting `i` in our test.
+        // Finally, we escape special chars to get again a string literal for the expected result:
+        // escaped_str=\"Just a \\\"test\\\" with escapes.\"
+        //
         expected.insert("i".to_string(),
                         Setting::new("i".to_string(),
                                      Value::Svalue(
@@ -2644,10 +2725,9 @@ mod test {
                                          Value::Svalue(ScalarValue::Integer64(5))])));
         expected.insert("b".to_string(),
                         Setting::new("b".to_string(),
-                                     Value::Array(vec![
-                                         Value::Svalue(ScalarValue::Integer64(5)),
-                                         Value::Svalue(ScalarValue::Integer64(6)),
-                                         Value::Svalue(ScalarValue::Integer64(7))])));
+                                     Value::Array(vec![Value::Svalue(ScalarValue::Integer64(5)),
+                                                       Value::Svalue(ScalarValue::Integer64(6)),
+                                                       Value::Svalue(ScalarValue::Integer64(7))])));
 
         assert_eq!(parsed, Done(&b""[..], Config::new(expected)));
     }
@@ -2689,16 +2769,17 @@ mod test {
 
     #[test]
     fn conf_str_arrays() {
-        let parsed = conf(
-            &concat!("my_strs = [                          ",
-                     "\"testing.org\"                , ",
-                     "\"Just a \\\"test\\\" with escapes.\",",
-                     "\"He said: 'Hello!'\", ",
-                     "\"\\\"\\\"\"\t\t, ",
-                     "\"A backslash in quotes: \\\"\\\\\\\"\",",
-                     "\"escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" with escapes.\\\";\", ",
-                     "\"\\n\\r\\t\\\"\"\n\n]\n;\n",
-                     "my_simple_strs = [\"hello\", \"world\"];\n").as_bytes()[..]);
+        let parsed =
+            conf(&concat!("my_strs = [                          ",
+                          "\"testing.org\"                , ",
+                          "\"Just a \\\"test\\\" with escapes.\",",
+                          "\"He said: 'Hello!'\", ",
+                          "\"\\\"\\\"\"\t\t, ",
+                          "\"A backslash in quotes: \\\"\\\\\\\"\",",
+                          "\"escaped_str=\\\"Just a \\\\\\\"test\\\\\\\" with escapes.\\\";\", ",
+                          "\"\\n\\r\\t\\\"\"\n\n]\n;\n",
+                          "my_simple_strs = [\"hello\", \"world\"];\n")
+                      .as_bytes()[..]);
 
         let mut expected = SettingsList::new();
         expected.insert("my_strs".to_string(),
@@ -2768,7 +2849,8 @@ mod test {
         let mut expected = SettingsList::new();
         expected.insert("list".to_string(),
                         Setting::new("list".to_string(),
-                                     Value::List(vec![Value::List(vec![Value::List(Vec::new())])])));
+                                     Value::List(
+                                        vec![Value::List(vec![Value::List(Vec::new())])])));
 
         assert_eq!(parsed, Done(&b""[..], Config::new(expected)));
     }
@@ -2779,7 +2861,8 @@ mod test {
                                    "15, 0.25e+2, 9000000000000000000L, 54, 55937598585.5L,\n",
                                    "yes\n,\ntrue\t,false,NO\n\n\n);\nanother_list=(10, \"0\");\n",
                                    "another_list\n=\n(\n   yes, 19, \"bye\"\n)\n;\n",
-                                   "last_one:(true);\n").as_bytes()[..]);
+                                   "last_one:(true);\n")
+                               .as_bytes()[..]);
 
         let mut expected = SettingsList::new();
         expected.insert("my_list".to_string(),
@@ -2818,7 +2901,8 @@ mod test {
                                    "(()), ((\"a\")), (\"a\"), [\"\\\"x\\\"\"],",
                                    "(14, [\"x\"], (true, (false, (4), [5, 6]), \"y\")),",
                                    "\"goodbye!\\r\\n\", ",
-                                   "{ s = [1, 2]; x = \"str\"; y = (); });\n").as_bytes()[..]);
+                                   "{ s = [1, 2]; x = \"str\"; y = (); });\n")
+                               .as_bytes()[..]);
 
         let mut group_in_list = SettingsList::new();
         group_in_list.insert("s".to_string(),
@@ -2870,24 +2954,24 @@ mod test {
 
     #[test]
     fn sample_conf_small() {
-        let parsed = conf(&concat!(
-            "\n\napplication:\n",
-            "{\n",
-            "  window:\n",
-            "  {\n",
-            "    title = \"My Application\";\n",
-            "    size = { w = 640; h = 480; };\n",
-            "  };\n",
-            "  a = 5;\n",
-            "  ff = 1.E6;\n",
-            "  group1:\n",
-            "  {\n",
-            "    x = 5;  y = 10;\n",
-            "    my_array = [ 10, 11, 12 ];\n",
-            "    flag = TRUE;\n",
-            "    states = [\"CT\", \"CA\", \"TX\", \"NV\", \"FL\"];",
-            "  };\n",
-            "};\n").as_bytes()[..]);
+        let parsed = conf(&concat!("\n\napplication:\n",
+                                   "{\n",
+                                   "  window:\n",
+                                   "  {\n",
+                                   "    title = \"My Application\";\n",
+                                   "    size = { w = 640; h = 480; };\n",
+                                   "  };\n",
+                                   "  a = 5;\n",
+                                   "  ff = 1.E6;\n",
+                                   "  group1:\n",
+                                   "  {\n",
+                                   "    x = 5;  y = 10;\n",
+                                   "    my_array = [ 10, 11, 12 ];\n",
+                                   "    flag = TRUE;\n",
+                                   "    states = [\"CT\", \"CA\", \"TX\", \"NV\", \"FL\"];",
+                                   "  };\n",
+                                   "};\n")
+                               .as_bytes()[..]);
 
         let mut size_group = SettingsList::new();
         size_group.insert("w".to_string(),
@@ -2901,7 +2985,7 @@ mod test {
         window_group.insert("title".to_string(),
                             Setting::new("title".to_string(),
                                          Value::Svalue(ScalarValue::Str("My Application"
-                                                                        .to_string()))));
+                                                                            .to_string()))));
         window_group.insert("size".to_string(),
                             Setting::new("size".to_string(), Value::Group(size_group)));
 
@@ -2912,12 +2996,12 @@ mod test {
                       Setting::new("y".to_string(), Value::Svalue(ScalarValue::Integer32(10))));
         group1.insert("my_array".to_string(),
                       Setting::new("my_array".to_string(),
-                                   Value::Array(vec![
-                                       Value::Svalue(ScalarValue::Integer32(10)),
-                                       Value::Svalue(ScalarValue::Integer32(11)),
-                                       Value::Svalue(ScalarValue::Integer32(12))])));
+                                   Value::Array(vec![Value::Svalue(ScalarValue::Integer32(10)),
+                                                     Value::Svalue(ScalarValue::Integer32(11)),
+                                                     Value::Svalue(ScalarValue::Integer32(12))])));
         group1.insert("flag".to_string(),
-                      Setting::new("flag".to_string(), Value::Svalue(ScalarValue::Boolean(true))));
+                      Setting::new("flag".to_string(),
+                                   Value::Svalue(ScalarValue::Boolean(true))));
         group1.insert("states".to_string(),
                       Setting::new("states".to_string(),
                                    Value::Array(vec![
@@ -2979,7 +3063,7 @@ mod test {
         window_group.insert("title".to_string(),
                             Setting::new("title".to_string(),
                                          Value::Svalue(ScalarValue::Str("My Application"
-                                                                        .to_string()))));
+                                                                            .to_string()))));
         window_group.insert("size".to_string(),
                             Setting::new("size".to_string(), Value::Group(size_group)));
 
@@ -2990,12 +3074,12 @@ mod test {
                       Setting::new("y".to_string(), Value::Svalue(ScalarValue::Integer32(10))));
         group1.insert("my_array".to_string(),
                       Setting::new("my_array".to_string(),
-                                   Value::Array(vec![
-                                       Value::Svalue(ScalarValue::Integer32(10)),
-                                       Value::Svalue(ScalarValue::Integer32(11)),
-                                       Value::Svalue(ScalarValue::Integer32(12))])));
+                                   Value::Array(vec![Value::Svalue(ScalarValue::Integer32(10)),
+                                                     Value::Svalue(ScalarValue::Integer32(11)),
+                                                     Value::Svalue(ScalarValue::Integer32(12))])));
         group1.insert("flag".to_string(),
-                      Setting::new("flag".to_string(), Value::Svalue(ScalarValue::Boolean(true))));
+                      Setting::new("flag".to_string(),
+                                   Value::Svalue(ScalarValue::Boolean(true))));
         group1.insert("states".to_string(),
                       Setting::new("states".to_string(),
                                    Value::Array(vec![
@@ -3122,17 +3206,15 @@ mod test {
 
         let mut pos_group = SettingsList::new();
         pos_group.insert("x".to_string(),
-                         Setting::new("x".to_string(),
-                                      Value::Svalue(ScalarValue::Integer32(350))));
+                         Setting::new("x".to_string(), Value::Svalue(ScalarValue::Integer32(350))));
         pos_group.insert("y".to_string(),
-                         Setting::new("y".to_string(),
-                                      Value::Svalue(ScalarValue::Integer32(250))));
+                         Setting::new("y".to_string(), Value::Svalue(ScalarValue::Integer32(250))));
 
         let mut window_group = SettingsList::new();
         window_group.insert("title".to_string(),
                             Setting::new("title".to_string(),
                                          Value::Svalue(ScalarValue::Str("My Application"
-                                                                        .to_string()))));
+                                                                            .to_string()))));
         window_group.insert("size".to_string(),
                             Setting::new("size".to_string(), Value::Group(size_group)));
         window_group.insert("pos".to_string(),
@@ -3150,22 +3232,22 @@ mod test {
                       Setting::new("y".to_string(), Value::Svalue(ScalarValue::Integer32(10))));
         group1.insert("my_array".to_string(),
                       Setting::new("my_array".to_string(),
-                                   Value::Array(vec![
-                                       Value::Svalue(ScalarValue::Integer32(10)),
-                                       Value::Svalue(ScalarValue::Integer32(11)),
-                                       Value::Svalue(ScalarValue::Integer32(12)),
-                                       Value::Svalue(ScalarValue::Integer32(13)),
-                                       Value::Svalue(ScalarValue::Integer32(14)),
-                                       Value::Svalue(ScalarValue::Integer32(15)),
-                                       Value::Svalue(ScalarValue::Integer32(16)),
-                                       Value::Svalue(ScalarValue::Integer32(17)),
-                                       Value::Svalue(ScalarValue::Integer32(18)),
-                                       Value::Svalue(ScalarValue::Integer32(19)),
-                                       Value::Svalue(ScalarValue::Integer32(20)),
-                                       Value::Svalue(ScalarValue::Integer32(21)),
-                                       Value::Svalue(ScalarValue::Integer32(22))])));
+                                   Value::Array(vec![Value::Svalue(ScalarValue::Integer32(10)),
+                                                     Value::Svalue(ScalarValue::Integer32(11)),
+                                                     Value::Svalue(ScalarValue::Integer32(12)),
+                                                     Value::Svalue(ScalarValue::Integer32(13)),
+                                                     Value::Svalue(ScalarValue::Integer32(14)),
+                                                     Value::Svalue(ScalarValue::Integer32(15)),
+                                                     Value::Svalue(ScalarValue::Integer32(16)),
+                                                     Value::Svalue(ScalarValue::Integer32(17)),
+                                                     Value::Svalue(ScalarValue::Integer32(18)),
+                                                     Value::Svalue(ScalarValue::Integer32(19)),
+                                                     Value::Svalue(ScalarValue::Integer32(20)),
+                                                     Value::Svalue(ScalarValue::Integer32(21)),
+                                                     Value::Svalue(ScalarValue::Integer32(22))])));
         group1.insert("flag".to_string(),
-                      Setting::new("flag".to_string(), Value::Svalue(ScalarValue::Boolean(true))));
+                      Setting::new("flag".to_string(),
+                                   Value::Svalue(ScalarValue::Boolean(true))));
         group1.insert("group2".to_string(),
                       Setting::new("group2".to_string(), Value::Group(group2)));
         group1.insert("states".to_string(),
@@ -3190,7 +3272,7 @@ mod test {
         app_group.insert("test-comment".to_string(),
                          Setting::new("test-comment".to_string(),
                                       Value::Svalue(ScalarValue::Str("/* hello\n \"there\"*/"
-                                                                     .to_string()))));
+                                                                         .to_string()))));
         app_group.insert("test-long-string".to_string(),
                          Setting::new("test-long-string".to_string(),
                                       Value::Svalue(ScalarValue::Str(
@@ -3200,7 +3282,7 @@ mod test {
         app_group.insert("test-escaped-string".to_string(),
                          Setting::new("test-escaped-string".to_string(),
                                       Value::Svalue(ScalarValue::Str("\"This is\n a test.\""
-                                                                     .to_string()))));
+                                                                         .to_string()))));
         app_group.insert("group1".to_string(),
                          Setting::new("group1".to_string(), Value::Group(group1)));
 
@@ -3211,33 +3293,29 @@ mod test {
         let mut group_a = SettingsList::new();
         group_a.insert("a".to_string(),
                        Setting::new("a".to_string(),
-                                    Value::List(vec![
-                                        Value::Svalue(ScalarValue::Integer32(1)),
-                                        Value::Svalue(ScalarValue::Integer32(2)),
-                                        Value::Svalue(ScalarValue::Boolean(true))])));
+                                    Value::List(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                                     Value::Svalue(ScalarValue::Integer32(2)),
+                                                     Value::Svalue(ScalarValue::Boolean(true))])));
 
-        let list_elements = vec![
-            Value::List(vec![
+        let list_elements = vec![Value::List(vec![
                 Value::Svalue(ScalarValue::Str("abc".to_string())),
                 Value::Svalue(ScalarValue::Integer32(123)),
                 Value::Svalue(ScalarValue::Boolean(true))]),
-            Value::Svalue(ScalarValue::Floating32(1.234)),
-            Value::List(Vec::new()),
-            Value::Array(vec![
-                Value::Svalue(ScalarValue::Integer32(1)),
-                Value::Svalue(ScalarValue::Integer32(2)),
-                Value::Svalue(ScalarValue::Integer32(3))]),
-            Value::Group(group_a)];
+                                 Value::Svalue(ScalarValue::Floating32(1.234)),
+                                 Value::List(Vec::new()),
+                                 Value::Array(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                                   Value::Svalue(ScalarValue::Integer32(2)),
+                                                   Value::Svalue(ScalarValue::Integer32(3))]),
+                                 Value::Group(group_a)];
 
         expected.insert("list".to_string(),
-                        Setting::new("list".to_string(),
-                                     Value::List(list_elements)));
+                        Setting::new("list".to_string(), Value::List(list_elements)));
 
         let mut inventory_group_1 = SettingsList::new();
         inventory_group_1.insert("title".to_string(),
                                  Setting::new("title".to_string(),
-                                              Value::Svalue(ScalarValue::Str(
-                                                  "Treasure Island".to_string()))));
+                                              Value::Svalue(ScalarValue::Str("Treasure Island"
+                                                                                 .to_string()))));
         inventory_group_1.insert("author".to_string(),
                                  Setting::new("author".to_string(),
                                               Value::Svalue(ScalarValue::Str(
@@ -3252,12 +3330,12 @@ mod test {
         let mut inventory_group_2 = SettingsList::new();
         inventory_group_2.insert("title".to_string(),
                                  Setting::new("title".to_string(),
-                                              Value::Svalue(ScalarValue::Str(
-                                                  "Snow Crash".to_string()))));
+                                              Value::Svalue(ScalarValue::Str("Snow Crash"
+                                                                                 .to_string()))));
         inventory_group_2.insert("author".to_string(),
                                  Setting::new("author".to_string(),
-                                              Value::Svalue(ScalarValue::Str(
-                                                  "Neal Stephenson".to_string()))));
+                                              Value::Svalue(ScalarValue::Str("Neal Stephenson"
+                                                                                 .to_string()))));
         inventory_group_2.insert("price".to_string(),
                                  Setting::new("price".to_string(),
                                               Value::Svalue(ScalarValue::Floating32(9.99))));
@@ -3266,14 +3344,12 @@ mod test {
                                               Value::Svalue(ScalarValue::Integer32(8))));
 
 
-        let books_list_elements = vec![
-            Value::Svalue(ScalarValue::Str("inventory".to_string())),
-            Value::Group(inventory_group_1),
-            Value::Group(inventory_group_2)];
+        let books_list_elements = vec![Value::Svalue(ScalarValue::Str("inventory".to_string())),
+                                       Value::Group(inventory_group_1),
+                                       Value::Group(inventory_group_2)];
 
         expected.insert("books".to_string(),
-                        Setting::new("books".to_string(),
-                                     Value::List(books_list_elements)));
+                        Setting::new("books".to_string(), Value::List(books_list_elements)));
 
         let mut misc_group = SettingsList::new();
         misc_group.insert("port".to_string(),
@@ -3287,16 +3363,15 @@ mod test {
                                        Value::Svalue(ScalarValue::Boolean(false))));
         misc_group.insert("unicode".to_string(),
                           Setting::new("unicode".to_string(),
-                                       Value::Svalue(ScalarValue::Str(
-                                           "STARGÎ›ÌŠTE SG-1".to_string()))));
+                                       Value::Svalue(ScalarValue::Str("STARGÎ›ÌŠTE SG-1"
+                                                                          .to_string()))));
         misc_group.insert("bigint".to_string(),
                           Setting::new("bigint".to_string(),
                                        Value::Svalue(ScalarValue::Integer64(
                                            9223372036854775807i64))));
 
         expected.insert("misc".to_string(),
-                        Setting::new("misc".to_string(),
-                                     Value::Group(misc_group)));
+                        Setting::new("misc".to_string(), Value::Group(misc_group)));
 
         assert_eq!(parsed, Done(&b""[..], Config::new(expected)));
     }
@@ -3400,17 +3475,15 @@ mod test {
 
         let mut pos_group = SettingsList::new();
         pos_group.insert("x".to_string(),
-                         Setting::new("x".to_string(),
-                                      Value::Svalue(ScalarValue::Integer32(350))));
+                         Setting::new("x".to_string(), Value::Svalue(ScalarValue::Integer32(350))));
         pos_group.insert("y".to_string(),
-                         Setting::new("y".to_string(),
-                                      Value::Svalue(ScalarValue::Integer32(250))));
+                         Setting::new("y".to_string(), Value::Svalue(ScalarValue::Integer32(250))));
 
         let mut window_group = SettingsList::new();
         window_group.insert("title".to_string(),
                             Setting::new("title".to_string(),
                                          Value::Svalue(ScalarValue::Str("My Application"
-                                                                        .to_string()))));
+                                                                            .to_string()))));
         window_group.insert("size".to_string(),
                             Setting::new("size".to_string(), Value::Group(size_group)));
         window_group.insert("pos".to_string(),
@@ -3428,22 +3501,22 @@ mod test {
                       Setting::new("y".to_string(), Value::Svalue(ScalarValue::Integer32(10))));
         group1.insert("my_array".to_string(),
                       Setting::new("my_array".to_string(),
-                                   Value::Array(vec![
-                                       Value::Svalue(ScalarValue::Integer32(10)),
-                                       Value::Svalue(ScalarValue::Integer32(11)),
-                                       Value::Svalue(ScalarValue::Integer32(12)),
-                                       Value::Svalue(ScalarValue::Integer32(13)),
-                                       Value::Svalue(ScalarValue::Integer32(14)),
-                                       Value::Svalue(ScalarValue::Integer32(15)),
-                                       Value::Svalue(ScalarValue::Integer32(16)),
-                                       Value::Svalue(ScalarValue::Integer32(17)),
-                                       Value::Svalue(ScalarValue::Integer32(18)),
-                                       Value::Svalue(ScalarValue::Integer32(19)),
-                                       Value::Svalue(ScalarValue::Integer32(20)),
-                                       Value::Svalue(ScalarValue::Integer32(21)),
-                                       Value::Svalue(ScalarValue::Integer32(22))])));
+                                   Value::Array(vec![Value::Svalue(ScalarValue::Integer32(10)),
+                                                     Value::Svalue(ScalarValue::Integer32(11)),
+                                                     Value::Svalue(ScalarValue::Integer32(12)),
+                                                     Value::Svalue(ScalarValue::Integer32(13)),
+                                                     Value::Svalue(ScalarValue::Integer32(14)),
+                                                     Value::Svalue(ScalarValue::Integer32(15)),
+                                                     Value::Svalue(ScalarValue::Integer32(16)),
+                                                     Value::Svalue(ScalarValue::Integer32(17)),
+                                                     Value::Svalue(ScalarValue::Integer32(18)),
+                                                     Value::Svalue(ScalarValue::Integer32(19)),
+                                                     Value::Svalue(ScalarValue::Integer32(20)),
+                                                     Value::Svalue(ScalarValue::Integer32(21)),
+                                                     Value::Svalue(ScalarValue::Integer32(22))])));
         group1.insert("flag".to_string(),
-                      Setting::new("flag".to_string(), Value::Svalue(ScalarValue::Boolean(true))));
+                      Setting::new("flag".to_string(),
+                                   Value::Svalue(ScalarValue::Boolean(true))));
         group1.insert("group2".to_string(),
                       Setting::new("group2".to_string(), Value::Group(group2)));
         group1.insert("states".to_string(),
@@ -3468,7 +3541,7 @@ mod test {
         app_group.insert("test-comment".to_string(),
                          Setting::new("test-comment".to_string(),
                                       Value::Svalue(ScalarValue::Str("/* hello\n \"there\"*/"
-                                                                     .to_string()))));
+                                                                         .to_string()))));
         app_group.insert("test-long-string".to_string(),
                          Setting::new("test-long-string".to_string(),
                                       Value::Svalue(ScalarValue::Str(
@@ -3478,7 +3551,7 @@ mod test {
         app_group.insert("test-escaped-string".to_string(),
                          Setting::new("test-escaped-string".to_string(),
                                       Value::Svalue(ScalarValue::Str("\"This is\n a test.\""
-                                                                     .to_string()))));
+                                                                         .to_string()))));
         app_group.insert("group1".to_string(),
                          Setting::new("group1".to_string(), Value::Group(group1)));
 
@@ -3489,33 +3562,29 @@ mod test {
         let mut group_a = SettingsList::new();
         group_a.insert("a".to_string(),
                        Setting::new("a".to_string(),
-                                    Value::List(vec![
-                                        Value::Svalue(ScalarValue::Integer32(1)),
-                                        Value::Svalue(ScalarValue::Integer32(2)),
-                                        Value::Svalue(ScalarValue::Boolean(true))])));
+                                    Value::List(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                                     Value::Svalue(ScalarValue::Integer32(2)),
+                                                     Value::Svalue(ScalarValue::Boolean(true))])));
 
-        let list_elements = vec![
-            Value::List(vec![
+        let list_elements = vec![Value::List(vec![
                 Value::Svalue(ScalarValue::Str("abc".to_string())),
                 Value::Svalue(ScalarValue::Integer32(123)),
                 Value::Svalue(ScalarValue::Boolean(true))]),
-            Value::Svalue(ScalarValue::Floating32(1.234)),
-            Value::List(Vec::new()),
-            Value::Array(vec![
-                Value::Svalue(ScalarValue::Integer32(1)),
-                Value::Svalue(ScalarValue::Integer32(2)),
-                Value::Svalue(ScalarValue::Integer32(3))]),
-            Value::Group(group_a)];
+                                 Value::Svalue(ScalarValue::Floating32(1.234)),
+                                 Value::List(Vec::new()),
+                                 Value::Array(vec![Value::Svalue(ScalarValue::Integer32(1)),
+                                                   Value::Svalue(ScalarValue::Integer32(2)),
+                                                   Value::Svalue(ScalarValue::Integer32(3))]),
+                                 Value::Group(group_a)];
 
         expected.insert("list".to_string(),
-                        Setting::new("list".to_string(),
-                                     Value::List(list_elements)));
+                        Setting::new("list".to_string(), Value::List(list_elements)));
 
         let mut inventory_group_1 = SettingsList::new();
         inventory_group_1.insert("title".to_string(),
                                  Setting::new("title".to_string(),
-                                              Value::Svalue(ScalarValue::Str(
-                                                  "Treasure Island".to_string()))));
+                                              Value::Svalue(ScalarValue::Str("Treasure Island"
+                                                                                 .to_string()))));
         inventory_group_1.insert("author".to_string(),
                                  Setting::new("author".to_string(),
                                               Value::Svalue(ScalarValue::Str(
@@ -3530,12 +3599,12 @@ mod test {
         let mut inventory_group_2 = SettingsList::new();
         inventory_group_2.insert("title".to_string(),
                                  Setting::new("title".to_string(),
-                                              Value::Svalue(ScalarValue::Str(
-                                                  "Snow Crash".to_string()))));
+                                              Value::Svalue(ScalarValue::Str("Snow Crash"
+                                                                                 .to_string()))));
         inventory_group_2.insert("author".to_string(),
                                  Setting::new("author".to_string(),
-                                              Value::Svalue(ScalarValue::Str(
-                                                  "Neal Stephenson".to_string()))));
+                                              Value::Svalue(ScalarValue::Str("Neal Stephenson"
+                                                                                 .to_string()))));
         inventory_group_2.insert("price".to_string(),
                                  Setting::new("price".to_string(),
                                               Value::Svalue(ScalarValue::Floating32(9.99))));
@@ -3544,14 +3613,12 @@ mod test {
                                               Value::Svalue(ScalarValue::Integer32(8))));
 
 
-        let books_list_elements = vec![
-            Value::Svalue(ScalarValue::Str("inventory".to_string())),
-            Value::Group(inventory_group_1),
-            Value::Group(inventory_group_2)];
+        let books_list_elements = vec![Value::Svalue(ScalarValue::Str("inventory".to_string())),
+                                       Value::Group(inventory_group_1),
+                                       Value::Group(inventory_group_2)];
 
         expected.insert("books".to_string(),
-                        Setting::new("books".to_string(),
-                                     Value::List(books_list_elements)));
+                        Setting::new("books".to_string(), Value::List(books_list_elements)));
 
         let mut misc_group = SettingsList::new();
         misc_group.insert("port".to_string(),
@@ -3565,16 +3632,15 @@ mod test {
                                        Value::Svalue(ScalarValue::Boolean(false))));
         misc_group.insert("unicode".to_string(),
                           Setting::new("unicode".to_string(),
-                                       Value::Svalue(ScalarValue::Str(
-                                           "STARGÎ›ÌŠTE SG-1".to_string()))));
+                                       Value::Svalue(ScalarValue::Str("STARGÎ›ÌŠTE SG-1"
+                                                                          .to_string()))));
         misc_group.insert("bigint".to_string(),
                           Setting::new("bigint".to_string(),
                                        Value::Svalue(ScalarValue::Integer64(
                                            9223372036854775807i64))));
 
         expected.insert("misc".to_string(),
-                        Setting::new("misc".to_string(),
-                                     Value::Group(misc_group)));
+                        Setting::new("misc".to_string(), Value::Group(misc_group)));
 
         assert_eq!(parsed, Done(&b""[..], Config::new(expected)));
     }
@@ -3677,33 +3743,33 @@ mod test {
         let input = &b"$\"TEST_FLT32\"::flt;\n"[..];
         let res = flt_scalar_value(input);
         if let Done(_, ScalarValue::Floating32(value)) = res {
-          assert!(value > 3.1414 && value < 3.1416);
+            assert!(value > 3.1414 && value < 3.1416);
         } else {
-          panic!("Failed to read env f32: {:?}", res);
+            panic!("Failed to read env f32: {:?}", res);
         }
 
         let input = &b"$\"TEST_FLT32_NOT_FOUND\"::flt;\n"[..];
         let res = flt_scalar_value(input);
         if let Done(_, ScalarValue::Floating32(value)) = res {
-          assert!(value > -0.0001 && value < 0.0001);
+            assert!(value > -0.0001 && value < 0.0001);
         } else {
-          panic!("Failed to read fake env float: {:?}", res);
+            panic!("Failed to read fake env float: {:?}", res);
         }
 
         let input = &b"$\"TEST_FLT32\"::auto;\n"[..];
         let res = auto_env_scalar_value(input);
         if let Done(_, ScalarValue::Floating32(value)) = res {
-          assert!(value > 3.1414 && value < 3.1416);
+            assert!(value > 3.1414 && value < 3.1416);
         } else {
-          panic!("Failed to read env f32: {:?}", res);
+            panic!("Failed to read env f32: {:?}", res);
         }
 
         let input = &b"$\"TEST_FLT32\";\n"[..];
         let res = auto_env_scalar_value(input);
         if let Done(_, ScalarValue::Floating32(value)) = res {
-          assert!(value > 3.1414 && value < 3.1416);
+            assert!(value > 3.1414 && value < 3.1416);
         } else {
-          panic!("Failed to read env f32: {:?}", res);
+            panic!("Failed to read env f32: {:?}", res);
         }
     }
 
@@ -3716,25 +3782,25 @@ mod test {
         let input = &b"$\"TEST_FLT64\"::flt;\n"[..];
         let res = flt_scalar_value(input);
         if let Done(_, ScalarValue::Floating64(value)) = res {
-          assert!(value > -3.1416 && value < -3.1414);
+            assert!(value > -3.1416 && value < -3.1414);
         } else {
-          panic!("Failed to read env f64: {:?}", res);
+            panic!("Failed to read env f64: {:?}", res);
         }
 
         let input = &b"$\"TEST_FLT64\"::auto;\n"[..];
         let res = auto_env_scalar_value(input);
         if let Done(_, ScalarValue::Floating64(value)) = res {
-          assert!(value > -3.1416 && value < -3.1414);
+            assert!(value > -3.1416 && value < -3.1414);
         } else {
-          panic!("Failed to read env f64: {:?}", res);
+            panic!("Failed to read env f64: {:?}", res);
         }
 
         let input = &b"$\"TEST_FLT64\";\n"[..];
         let res = auto_env_scalar_value(input);
         if let Done(_, ScalarValue::Floating64(value)) = res {
-          assert!(value > -3.1416 && value < -3.1414);
+            assert!(value > -3.1416 && value < -3.1414);
         } else {
-          panic!("Failed to read env f64: {:?}", res);
+            panic!("Failed to read env f64: {:?}", res);
         }
     }
 

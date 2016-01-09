@@ -13,7 +13,7 @@ use parser::parse;
 #[derive(PartialEq)]
 #[derive(Debug)]
 pub struct Config {
-    root: Value
+    root: Value,
 }
 
 /// Settings list representation. Associates settings to their names.
@@ -26,7 +26,7 @@ pub struct Setting {
     /// Setting name, as read from the configuration file
     pub name: String,
     /// This setting's value. A value can be a scalar, an array, a list, or a group.
-    pub value: Value
+    pub value: Value,
 }
 
 /// A type representing a generic value. `Setting`s store `Value`s.
@@ -41,7 +41,7 @@ pub enum Value {
     /// possibly different types, including other lists.
     List(ListValue),
     /// A group. Basically, a group acts as another configuration file - it stores a `SettingsList`.
-    Group(SettingsList)
+    Group(SettingsList),
 }
 
 /// The scalar values representation. Scalar values bind directly to Rust primitive types.
@@ -59,7 +59,7 @@ pub enum ScalarValue {
     /// An f64 scalar
     Floating64(f64),
     /// A string scalar
-    Str(String)
+    Str(String),
 }
 
 /// The type used to represent the scalars inside an array.
@@ -82,8 +82,8 @@ impl Config {
     /// * An I/O error on `stream`, in which case no parsing was done
     /// * A syntax error
     ///
-    /// If a syntax error is reported, it means that the stream successfully delivered every piece of
-    /// data, since parsing doesn't start until the whole input is read to memory.
+    /// If a syntax error is reported, it means that the stream successfully delivered every piece
+    /// of data, since parsing doesn't start until the whole input is read to memory.
     /// # Examples
     /// For educational / demonstration purposes, we can wrap a string inside a `Cursor` to simulate
     /// a stream of data:
@@ -144,7 +144,7 @@ impl Config {
 
         match stream.read_to_string(&mut buf) {
             Ok(_) => Config::from_str(&buf[..]),
-            Err(e) => Err(ConfigError::from(e))
+            Err(e) => Err(ConfigError::from(e)),
         }
     }
 
@@ -154,7 +154,8 @@ impl Config {
     /// * An error when trying to locate / open the file. This is treated as an I/O error.
     /// * A syntax error
     ///
-    /// Errors upon opening the file can happen due to the file not existing, or bad permissions, etc.
+    /// Errors upon opening the file can happen due to the file not existing, or bad permissions,
+    /// etc.
     ///
     /// # Examples
     /// This reads and parses a configuration stored in `examples/sample.conf`:
@@ -171,7 +172,7 @@ impl Config {
     pub fn from_file(path: &Path) -> Result<Config, ConfigError> {
         let mut file = match File::open(path) {
             Ok(f) => f,
-            Err(e) => return Err(ConfigError::from(e))
+            Err(e) => return Err(ConfigError::from(e)),
         };
         Config::from_stream(&mut file)
     }
@@ -203,14 +204,13 @@ impl Lookup for Value {
                 if !segment.ends_with("]") || segment.len() < 3 {
                     return None;
                 }
-                if let Ok(index) = (&segment[1..segment.len()-1]).parse::<usize>() {
+                if let Ok(index) = (&segment[1..segment.len() - 1]).parse::<usize>() {
                     if let &Value::Array(ref arr) = last_value {
                         if index >= arr.len() {
                             return None;
                         }
                         last_value = &arr[index];
-                    }
-                    else if let &Value::List(ref list) = last_value {
+                    } else if let &Value::List(ref list) = last_value {
                         if index >= list.len() {
                             return None;
                         }
@@ -225,7 +225,7 @@ impl Lookup for Value {
                 if let &Value::Group(ref settings_list) = last_value {
                     let next_setting = match settings_list.get(&segment[..]) {
                         Some(v) => v,
-                        None => return None
+                        None => return None,
                     };
                     last_value = &next_setting.value;
                 } else {
@@ -294,7 +294,10 @@ impl Setting {
     /// ```
     ///
     pub fn new(sname: String, val: Value) -> Setting {
-        Setting { name: sname, value: val }
+        Setting {
+            name: sname,
+            value: val,
+        }
     }
 }
 
@@ -319,7 +322,7 @@ pub trait Lookup {
     /// Returns `None` if the path is invalid. A path is invalid if it is not syntactically
     /// well-formed, if it attempts to index an array or list beyond the limit, or if it
     /// includes an unknown setting.
-    /// 
+    ///
     /// # Examples
     /// Suppose we have loaded a configuration that consists of:
     ///
@@ -339,7 +342,11 @@ pub trait Lookup {
     /// use config::Config;
     /// use config::Lookup;
     ///
-    /// let my_conf = Config::from_str("my_string = \"hello\"; a_list = ([1, 2, 3], true, { x = 4; }, \"good_bye\");").unwrap();
+    /// let my_conf = Config::from_str(
+    ///                           concat!("my_string = \"hello\";",
+    ///                                   "a_list = ([1, 2, 3], true,",
+    ///                                   "{ x = 4; }, \"good_bye\");"))
+    ///                       .unwrap();
     ///
     /// let my_str_value = my_conf.lookup("my_string");
     /// assert!(my_str_value.is_some());
@@ -359,11 +366,12 @@ pub trait Lookup {
     /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
     /// type does not match with the requested type - in this case, `bool`.
     fn lookup_boolean(&self, path: &str) -> Option<bool> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Boolean(b)) => Some(b),
-                                       _ => None
-                                   })
+        self.lookup(path).and_then(|v| {
+            match v {
+                &Value::Svalue(ScalarValue::Boolean(b)) => Some(b),
+                _ => None,
+            }
+        })
     }
 
     /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
@@ -372,11 +380,12 @@ pub trait Lookup {
     /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
     /// type does not match with the requested type - in this case, `i32`.
     fn lookup_integer32(&self, path: &str) -> Option<i32> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Integer32(x)) => Some(x),
-                                       _ => None
-                                   })
+        self.lookup(path).and_then(|v| {
+            match v {
+                &Value::Svalue(ScalarValue::Integer32(x)) => Some(x),
+                _ => None,
+            }
+        })
     }
 
     /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
@@ -385,11 +394,12 @@ pub trait Lookup {
     /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
     /// type does not match with the requested type - in this case, `i64`.
     fn lookup_integer64(&self, path: &str) -> Option<i64> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Integer64(x)) => Some(x),
-                                       _ => None
-                                   })
+        self.lookup(path).and_then(|v| {
+            match v {
+                &Value::Svalue(ScalarValue::Integer64(x)) => Some(x),
+                _ => None,
+            }
+        })
     }
 
     /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
@@ -398,11 +408,12 @@ pub trait Lookup {
     /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
     /// type does not match with the requested type - in this case, `f32`.
     fn lookup_floating32(&self, path: &str) -> Option<f32> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Floating32(x)) => Some(x),
-                                       _ => None
-                                   })
+        self.lookup(path).and_then(|v| {
+            match v {
+                &Value::Svalue(ScalarValue::Floating32(x)) => Some(x),
+                _ => None,
+            }
+        })
     }
 
     /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
@@ -411,11 +422,12 @@ pub trait Lookup {
     /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
     /// type does not match with the requested type - in this case, `f64`.
     fn lookup_floating64(&self, path: &str) -> Option<f64> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Floating64(x)) => Some(x),
-                                       _ => None
-                                   })
+        self.lookup(path).and_then(|v| {
+            match v {
+                &Value::Svalue(ScalarValue::Floating64(x)) => Some(x),
+                _ => None,
+            }
+        })
     }
 
     /// A convenient wrapper around `lookup()` that unwraps the underlying primitive
@@ -424,11 +436,12 @@ pub trait Lookup {
     /// Returns `None` in the same way `lookup()` does; or if the underlying `Value`
     /// type does not match with the requested type - in this case, `String`.
     fn lookup_str(&self, path: &str) -> Option<&str> {
-        self.lookup(path).and_then(|v|
-                                   match v {
-                                       &Value::Svalue(ScalarValue::Str(ref s)) => Some(&s[..]),
-                                       _ => None
-                                   })
+        self.lookup(path).and_then(|v| {
+            match v {
+                &Value::Svalue(ScalarValue::Str(ref s)) => Some(&s[..]),
+                _ => None,
+            }
+        })
     }
 
     /// A convenient wrapper around `lookup_boolean()` that unwraps the underlying primitive
@@ -487,7 +500,7 @@ pub trait Lookup {
 #[cfg(test)]
 mod test {
     use super::Config;
-    use types::{Lookup, Value, ScalarValue, SettingsList, Setting};
+    use types::{Lookup, ScalarValue, Setting, SettingsList, Value};
     use error::ErrorKind;
     use std::path::Path;
     use std::io::Cursor;
@@ -515,15 +528,18 @@ mod test {
 
         let windows_lookup = my_conf.lookup("windows");
         assert!(windows_lookup.is_some());
-        assert_eq!(windows_lookup.unwrap(), &Value::Svalue(ScalarValue::Boolean(false)));
+        assert_eq!(windows_lookup.unwrap(),
+                   &Value::Svalue(ScalarValue::Boolean(false)));
 
         let linux_lookup = my_conf.lookup("linux");
         assert!(linux_lookup.is_some());
-        assert_eq!(linux_lookup.unwrap(), &Value::Svalue(ScalarValue::Boolean(true)));
+        assert_eq!(linux_lookup.unwrap(),
+                   &Value::Svalue(ScalarValue::Boolean(true)));
 
         let unix_lookup = my_conf.lookup("UNIX");
         assert!(unix_lookup.is_some());
-        assert_eq!(unix_lookup.unwrap(), &Value::Svalue(ScalarValue::Boolean(false)));
+        assert_eq!(unix_lookup.unwrap(),
+                   &Value::Svalue(ScalarValue::Boolean(false)));
 
     }
 
@@ -570,11 +586,13 @@ mod test {
 
         let miles_lookup = my_conf.lookup("miles");
         assert!(miles_lookup.is_some());
-        assert_eq!(miles_lookup.unwrap(), &Value::Svalue(ScalarValue::Integer32(3)));
+        assert_eq!(miles_lookup.unwrap(),
+                   &Value::Svalue(ScalarValue::Integer32(3)));
 
         let mpg_lookup = my_conf.lookup("mpg");
         assert!(mpg_lookup.is_some());
-        assert_eq!(mpg_lookup.unwrap(), &Value::Svalue(ScalarValue::Integer32(27)));
+        assert_eq!(mpg_lookup.unwrap(),
+                   &Value::Svalue(ScalarValue::Integer32(27)));
     }
 
     #[test]
@@ -625,8 +643,7 @@ mod test {
         let mut my_settings = SettingsList::new();
         my_settings.insert("list".to_string(),
                            Setting::new("list".to_string(),
-                                        Value::List(vec![
-                                            Value::List(vec![
+                                        Value::List(vec![Value::List(vec![
                                                 Value::List(Vec::new())])])));
 
         let my_conf = Config::new(my_settings);
@@ -645,8 +662,8 @@ mod test {
 
         let mut my_settings = SettingsList::new();
         my_settings.insert("my_list".to_string(),
-                        Setting::new("my_list".to_string(),
-                                     Value::List(vec![
+                           Setting::new("my_list".to_string(),
+                                        Value::List(vec![
                                          Value::Svalue(
                                              ScalarValue::Str("a \"string\" with \nquo\ttes"
                                                               .to_string())),
@@ -657,12 +674,13 @@ mod test {
 
         let the_string = my_conf.lookup("my_list.[0]");
         assert!(the_string.is_some());
-        assert_eq!(the_string.unwrap(), &Value::Svalue(ScalarValue::Str(
-            "a \"string\" with \nquo\ttes".to_string())));
+        assert_eq!(the_string.unwrap(),
+                   &Value::Svalue(ScalarValue::Str("a \"string\" with \nquo\ttes".to_string())));
 
         let big_int = my_conf.lookup("my_list.[1]");
         assert!(big_int.is_some());
-        assert_eq!(big_int.unwrap(), &Value::Svalue(ScalarValue::Integer64(9000000000000000000i64)));
+        assert_eq!(big_int.unwrap(),
+                   &Value::Svalue(ScalarValue::Integer64(9000000000000000000i64)));
 
     }
 
@@ -694,39 +712,39 @@ mod test {
     #[test]
     fn lookup_values_list() {
 
-        /* my_superb_list = (
-         *     [yes, no],
-         *     21,
-         *     [0.25, .5, .125],
-         *     (()),
-         *     (("a")),
-         *     ("a"),
-         *     ["\"x\""],
-         *     (
-         *         14,
-         *         ["x"],
-         *         (
-         *             true,
-         *             (
-         *                 false,
-         *                 (
-         *                     4
-         *                 ),
-         *                 [5, 6]
-         *             ),
-         *             "y"
-         *         )
-         *    ),
-         *    "goodbye!\r\n",
-         *    {
-         *        s = [1, 2];
-         *        x = "str";
-         *        y = ();
-         *    }
-         * )
-         */
+        // my_superb_list = (
+        //     [yes, no],
+        //     21,
+        //     [0.25, .5, .125],
+        //     (()),
+        //     (("a")),
+        //     ("a"),
+        //     ["\"x\""],
+        //     (
+        //         14,
+        //         ["x"],
+        //         (
+        //             true,
+        //             (
+        //                 false,
+        //                 (
+        //                     4
+        //                 ),
+        //                 [5, 6]
+        //             ),
+        //             "y"
+        //         )
+        //    ),
+        //    "goodbye!\r\n",
+        //    {
+        //        s = [1, 2];
+        //        x = "str";
+        //        y = ();
+        //    }
+        // )
+        //
 
-       let mut group_in_list = SettingsList::new();
+        let mut group_in_list = SettingsList::new();
         group_in_list.insert("s".to_string(),
                              Setting::new("s".to_string(),
                                           Value::Array(vec![
@@ -775,7 +793,8 @@ mod test {
 
         let lookup_bool = my_conf.lookup("my_superb_list.[0].[1]");
         assert!(lookup_bool.is_some());
-        assert_eq!(lookup_bool.unwrap(), &Value::Svalue(ScalarValue::Boolean(false)));
+        assert_eq!(lookup_bool.unwrap(),
+                   &Value::Svalue(ScalarValue::Boolean(false)));
 
         let lookup_empty_lst = my_conf.lookup("my_superb_list.[3].[0]");
         assert!(lookup_empty_lst.is_some());
@@ -783,15 +802,18 @@ mod test {
 
         let lookup_deep = my_conf.lookup("my_superb_list.[7].[2].[1].[2].[1]");
         assert!(lookup_deep.is_some());
-        assert_eq!(lookup_deep.unwrap(), &Value::Svalue(ScalarValue::Integer32(6)));
+        assert_eq!(lookup_deep.unwrap(),
+                   &Value::Svalue(ScalarValue::Integer32(6)));
 
         let lookup_str = my_conf.lookup("my_superb_list.[9].x");
         assert!(lookup_str.is_some());
-        assert_eq!(lookup_str.unwrap(), &Value::Svalue(ScalarValue::Str("str".to_string())));
+        assert_eq!(lookup_str.unwrap(),
+                   &Value::Svalue(ScalarValue::Str("str".to_string())));
 
         let lookup_deep_int = my_conf.lookup("my_superb_list.[9].s.[1]");
         assert!(lookup_deep_int.is_some());
-        assert_eq!(lookup_deep_int.unwrap(), &Value::Svalue(ScalarValue::Integer32(2)));
+        assert_eq!(lookup_deep_int.unwrap(),
+                   &Value::Svalue(ScalarValue::Integer32(2)));
 
         let lookup_empty_lst = my_conf.lookup("my_superb_list.[9].y");
         assert!(lookup_empty_lst.is_some());
@@ -864,7 +886,8 @@ mod test {
     fn parse_config_from_str_slice() {
         let config: Config = "answer=42;".parse().unwrap();
         assert!(config.lookup_integer32("answer").is_some());
-        assert_eq!(config.lookup_integer32("answer").unwrap().to_string(), "42".to_string());
+        assert_eq!(config.lookup_integer32("answer").unwrap().to_string(),
+                   "42".to_string());
     }
 
     #[test]
@@ -876,8 +899,7 @@ mod test {
 
         let mut my_settings = SettingsList::new();
         my_settings.insert("group".to_string(),
-                           Setting::new("group".to_string(),
-                                        Value::Group(inner)));
+                           Setting::new("group".to_string(), Value::Group(inner)));
 
         let my_conf = Config::new(my_settings);
 
@@ -890,12 +912,16 @@ mod test {
     struct BadStrCursor<'a> {
         cursor: Cursor<&'a [u8]>,
         calls: u16,
-        max_calls_before_err: u16
+        max_calls_before_err: u16,
     }
 
     impl<'a> BadStrCursor<'a> {
         fn new(data: &'a [u8], max_calls: u16) -> BadStrCursor<'a> {
-            BadStrCursor { cursor: Cursor::new(data), calls: 0, max_calls_before_err: max_calls }
+            BadStrCursor {
+                cursor: Cursor::new(data),
+                calls: 0,
+                max_calls_before_err: max_calls,
+            }
         }
     }
 

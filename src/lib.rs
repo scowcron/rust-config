@@ -121,23 +121,27 @@
 //! # Environment variables
 //!
 //! The crate has an ability to inject environment variables into the configuration file. That
-//! becomes possible using special syntax:  
+//! becomes possible using special syntax:
 //!
-//!  * `$"SOME_ENV_VAR_NAME"::str` to inject the environment variables `SOME_ENV_VAR_NAME` as the string value.
-//!    No additiocal changes are made ot the value.
-//!  * `$"SOME_ENV_VAR_NAME"::bool` to inject the environment variable `SOME_ENV_VAR_NAME` as the boolean value.
-//!    The value `true` or `yes` or `on` or `1` are converted into `true` otherwise into `false`.  
-//!  * `$"SOME_ENV_VAR_NAME"::int` to inject the environment variable `SOME_ENV_VAR_NAME` as the integer value.
-//!    The successfully parsed value is injected as `i32` or `i64`, depending on the format, otherwise `0i32` is injected.  
-//!  * `$"SOME_ENV_VAR_NAME"::flt` to inject the environment variable `SOME_ENV_VAR_NAME` as the floating value.
-//!    The successfully parsed value is injected as `f32` or `f64`, depending on the format, otherwise `0f32` is injected.  
-//!  * `$"SOME_ENV_VAR_NAME"::auto` or `$"SOME_ENV_VAR_NAME"` to inject the environment variable `SOME_ENV_VAR_NAME`
-//!    and resolve the type automatically. Rules of the type auto-resolution:  
-//!    - If the value is *True* or *Yes* or *On* then the result type is `boolean True`;  
-//!    - If the value is *False* or *No* or *Off* then the result type is `boolean False`;  
-//!    - If the value is floating then the result type is `floating`;  
-//!    - If the value is integer then the result type is `integer`;  
-//!    - Otherwise the result is `string` value.  
+//!  * `$"SOME_ENV_VAR_NAME"::str` to inject the environment variables `SOME_ENV_VAR_NAME` as the
+//!    string value. No additiocal changes are made ot the value.
+//!  * `$"SOME_ENV_VAR_NAME"::bool` to inject the environment variable `SOME_ENV_VAR_NAME` as the
+//!    boolean value. The value `true` or `yes` or `on` or `1` are converted into `true` otherwise
+//!    into `false`.
+//!  * `$"SOME_ENV_VAR_NAME"::int` to inject the environment variable `SOME_ENV_VAR_NAME` as the
+//!    integer value. The successfully parsed value is injected as `i32` or `i64`, depending on the
+//!    format, otherwise `0i32` is injected.
+//!  * `$"SOME_ENV_VAR_NAME"::flt` to inject the environment variable `SOME_ENV_VAR_NAME` as the
+//!    floating value. The successfully parsed value is injected as `f32` or `f64`, depending on
+//!    the format, otherwise `0f32` is injected.
+//!  * `$"SOME_ENV_VAR_NAME"::auto` or `$"SOME_ENV_VAR_NAME"` to inject the environment variable
+//!     `SOME_ENV_VAR_NAME`
+//!    and resolve the type automatically. Rules of the type auto-resolution:
+//!    - If the value is *True* or *Yes* or *On* then the result type is `boolean True`;
+//!    - If the value is *False* or *No* or *Off* then the result type is `boolean False`;
+//!    - If the value is floating then the result type is `floating`;
+//!    - If the value is integer then the result type is `integer`;
+//!    - Otherwise the result is `string` value.
 //!
 //! **Example**:
 //!
@@ -145,7 +149,7 @@
 //! #!/bin/sh
 //! export LOG_LEVEL=debug
 //! ```
-//! 
+//!
 //! ```ignore
 //! // Configuration file
 //! log = {
@@ -225,7 +229,7 @@
 //!
 //! flt32_array -> __ floating32_scalar_value __
 //!              | __ floating32_scalar_value __ "," __ flt32_array
-//
+//!
 //! int64_array -> __ integer64_scalar_value __
 //!              | __ integer64_scalar_value __ "," __ int64_array
 //!
@@ -274,4 +278,3 @@ mod types;
 
 pub mod error;
 pub use self::types::*;
-

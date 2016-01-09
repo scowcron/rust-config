@@ -15,7 +15,7 @@ pub struct ConfigError {
     /// Error details, if available
     pub detail: Option<String>,
 
-    err_desc: String
+    err_desc: String,
 }
 
 /// Possible error kinds
@@ -25,7 +25,7 @@ pub enum ErrorKind {
     /// An I/O error. Can only occur if reading from a stream (file, socket, etc.)
     IoError,
     /// A syntax error
-    ParseError
+    ParseError,
 }
 
 impl ConfigError {
@@ -36,7 +36,7 @@ impl ConfigError {
             desc: desc,
             detail: Some(format!("{}", err)),
 
-            err_desc: err_desc
+            err_desc: err_desc,
         }
     }
 }
