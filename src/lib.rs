@@ -143,7 +143,16 @@
 //!    - If the value is integer then the result type is `integer`;
 //!    - Otherwise the result is `string` value.
 //!
-//! **Example**:
+//!  Additionally, For each type of injected environment variable, a default value to be used if
+//!  specified the environment variable is not set. Syntax for default values is as follows:
+//!
+//!  * `$"SOME_ENV_VAR_NAME"::str("default")`
+//!  * `$"SOME_ENV_VAR_NAME"::bool(true)`
+//!  * `$"SOME_ENV_VAR_NAME"::flt(32.456)`
+//!  * `$"SOME_ENV_VAR_NAME"::auto("Value")`
+//!  * `$"SOME_ENV_VAR_NAME"::("Value")` - Equivalent to `$"SOME_ENV_VAR_NAME"::auto("Value")`
+//!
+//!**Example**:
 //!
 //! ```ignore
 //! #!/bin/sh
@@ -184,32 +193,71 @@
 //!               | str_scalar_value
 //!               | auto_env_scalar_value
 //!
-//! boolean_scalar_value -> [Tt][Rr][Uu][Ee]
+//! boolean_scalar_value -> boolean_local_value
+//!                       | boolean_env_value
+//!
+//! boolean_local_value -> [Tt][Rr][Uu][Ee]
 //!                       | [Yy][Ee][Ss]
 //!                       | [Oo][Nn]
 //!                       | [Ff][Aa][Ll][Ss][Ee]
 //!                       | [Nn][Oo]
 //!                       | [Oo][Ff][Ff]
-//!                       | $"ENV_VAR_NAME"::bool
 //!
-//! floating64_scalar_value -> [+-]?([0-9]+\.[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?"L"
-//!                          | $"ENV_VAR_NAME"::flt
+//! boolean_env_value -> $"ENV_VAR_NAME"::bool
+//!                    | $"ENV_VAR_NAME"::bool(boolean_local_value)
 //!
-//! floating32_scalar_value -> [+-]?([0-9]+\.[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?
-//!                          | $"ENV_VAR_NAME"::flt
+//! floating64_scalar_value -> floating64_local_value
+//!                          | floating64_env_value
 //!
-//! integer32_scalar_value -> [+-]?[0-9]+
-//!                         | $"ENV_VAR_NAME"::int
+//! floating64_local_value -> [+-]?([0-9]+\.[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?"L"
 //!
-//! integer64_scalar_value -> [+-]?[0-9]+"L"
-//!                         | $"ENV_VAR_NAME"::int
+//! floating64_env_value -> $"ENV_VAR_NAME"::flt
+//!                       | $"ENV_VAR_NAME"::flt(floating64_local_value)
 //!
-//! str_scalar_value -> __ str_literal __
+//! floating32_scalar_value -> floating32_local_value
+//!                          | floating32_env_value
+//!
+//! floating32_local_value -> [+-]?([0-9]+\.[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?
+//!
+//! floating32_env_value -> $"ENV_VAR_NAME"::flt
+//!                       | $"ENV_VAR_NAME"::flt(floating32_local_value)
+//!
+//! integer32_scalar_value -> integer32_local_value
+//!                         | integer32_env_value
+//!
+//! integer32_local_value -> [+-]?[0-9]+
+//!
+//! integer32_env_value -> $"ENV_VAR_NAME"::int
+//!                      | $"ENV_VAR_NAME"::int(integer32_local_value)
+//!
+//! integer64_scalar_value -> integer64_local_value
+//!                         | integer64_env_value
+//!
+//! integer64_local_value -> [+-]?[0-9]+"L"
+//!
+//! integer64_env_value -> $"ENV_VAR_NAME"::int
+//!                      | $"ENV_VAR_NAME"::int(integer64_local_value)
+//!
+//! str_scalar_value -> str_local_value
+//!                   | str_env_value
+//!
+//! str_local_value -> __ str_literal __
 //!                   | __ str_literal __ str_scalar_value
-//!                   | $"ENV_VAR_NAME"::str
+//!
+//! str_env_value -> $"ENV_VAR_NAME"::str
+//!                | $"ENV_VAR_NAME"::str(str_local_value)
 //!
 //! auto_env_scalar_value -> $"ENV_VAR_NAME"::auto
 //!                        | $"ENV_VAR_NAME"
+//!                        | $"ENV_VAR_NAME"::auto(auto_local_value)
+//!                        | $"ENV_VAR_NAME"::(auto_local_value)
+//!
+//! auto_local_value -> boolean_local_value
+//!                   | floating32_local_value
+//!                   | floating64_local_value
+//!                   | integer32_local_value
+//!                   | integer64_local_value
+//!                   | str_local_value
 //!
 //! str_literal -> "\"" ([^\"\\]|(("\\r"|"\\n"|"\\t"|"\\\""|"\\\\")))* "\""
 //!
