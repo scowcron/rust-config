@@ -5,7 +5,7 @@
 //! configurations, but future plans include a much richer user API to allow other forms of
 //! interaction, such as manipulating values, writing the current configuration to a file, etc.
 //!
-//! # Getting started
+//!# Getting started
 //!
 //! ```
 //! use config::{Config, Lookup};
@@ -23,7 +23,7 @@
 //! assert_eq!(cfg.lookup_boolean("my_config.is_cool").unwrap(), true);
 //! ```
 //!
-//! # Configuration
+//!# Configuration
 //!
 //! A configuration file consists of a group of settings. A setting is a key/value pair, where the
 //! key is a string of the form `[a-zA-Z][-a-zA-Z0-9_]*`, and the value is anything represented by
@@ -118,7 +118,7 @@
 //! See the integration tests (in the `tests/` directory) for sample use cases and more complex
 //! examples.
 //!
-//! # Environment variables
+//!# Environment variables
 //!
 //! The crate has an ability to inject environment variables into the configuration file. That
 //! becomes possible using special syntax:
@@ -167,7 +167,7 @@
 //! }
 //! ```
 //!
-//! # Grammar
+//!# Grammar
 //!
 //! This section describes the configuration input format. The starting rule is `conf`.
 //!
