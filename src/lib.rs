@@ -121,6 +121,16 @@
 //!    - If the value is integer then the result type is `integer`;  
 //!    - Otherwise the result is `string` value.  
 //!
+//!
+//!  Additionally, For each type of injected environment variable, a default value to be used if
+//!  specified the environment variable is not set. Syntax for default values is as follows:
+//!
+//!  * `$"SOME_ENV_VAR_NAME"::str("default")`
+//!  * `$"SOME_ENV_VAR_NAME"::bool(true)`
+//!  * `$"SOME_ENV_VAR_NAME"::flt(32.456)`
+//!  * `$"SOME_ENV_VAR_NAME"::auto("Value")`
+//!  * `$"SOME_ENV_VAR_NAME"::("Value")` - Equivalent to `$"SOME_ENV_VAR_NAME"::auto("Value")`
+//!
 //!**Example**:
 //!
 //! ```ignore
